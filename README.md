@@ -78,6 +78,16 @@ Implémenté et testé de bout en bout :
   comptes créés avant cette fonctionnalité et pour les employés (créés par le
   propriétaire, qui ne peut pas répondre à leur place).
 
+- **Administration plateforme** ✅ — Module 15 du cahier des charges. Rôle `admin`
+  (existait déjà dans `UserRole` depuis le V1, jamais exploité) : espace séparé
+  (`admin-dashboard.html`, `admin-boutiques.html`, `admin-utilisateurs.html`,
+  `assets/js/admin-layout.js`) pour superviser toutes les boutiques inscrites — statut
+  d'abonnement (essai/actif/suspendu) et plan (free/starter/pro/business/enterprise) par
+  boutique. Suspendre une boutique bloque tout accès (back-office **et** boutique
+  publique) via `deps.get_current_shop` (402) — un seul point de contrôle plutôt que de
+  modifier chaque router. **Aucune auto-inscription admin** : le compte s'ajoute
+  uniquement en base directement (`railway ssh`), jamais via l'API publique.
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

@@ -67,12 +67,21 @@ Puis ouvrir `http://127.0.0.1:5510/inscription.html`.
 Ou via les configurations `.claude/launch.json` (`backend` / `frontend`) avec l'outil de
 prévisualisation.
 
-## Déploiement (à faire)
+## Déploiement
 
-Pas encore déployé. Pistes à discuter le moment venu : Railway ou équivalent pour le
-backend + Postgres managé (Supabase, comme pour LECIM), build statique pour le frontend.
-Utiliser `requirements-prod.txt` pour installer `psycopg2-binary` sur l'environnement de
-déploiement, et fixer `DATABASE_URL` vers l'instance Postgres.
+- **Dépôt** : https://github.com/tolobayounousaa225-prog/MobiBiz
+- **Backend** : déployé sur Railway (projet `marvelous-rejoicing`, service
+  `mobibiz-backend`) → https://mobibiz-backend-production.up.railway.app — auto-déploiement
+  à chaque push sur `main` (build Docker depuis le `Dockerfile` à la racine du repo).
+- **Base de données** : PostgreSQL managé par Railway (service `Postgres` dans le même
+  projet), lié au backend via la variable `DATABASE_URL=${{Postgres.DATABASE_URL}}`
+  (réseau privé Railway, pas d'exposition publique).
+- **Frontend** : pas encore déployé. `assets/js/api.js` pointe déjà vers l'URL de
+  production Railway hors localhost ; reste à choisir un hébergement statique (Vercel,
+  Netlify, ou une page statique sur Railway) quand ce sera nécessaire.
+
+Pour redéployer manuellement depuis la racine du repo : `railway up --service mobibiz-backend`.
+Pour voir les logs : `railway logs --service mobibiz-backend`.
 
 ## Prochaines étapes suggérées
 

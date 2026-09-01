@@ -5,10 +5,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements-prod.txt requirements.txt ./
+COPY backend/requirements-prod.txt backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements-prod.txt
 
-COPY . .
+COPY backend/ .
 
 EXPOSE 8000
 

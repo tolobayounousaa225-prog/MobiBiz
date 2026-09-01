@@ -13,8 +13,16 @@
 <script>
   renderLayout("dashboard", "Tableau de bord", "Vue d'ensemble de votre activité");
 
+  const EMPLOYEE_ROLE_LABELS = {
+    manager: "Manager",
+    vendeur: "Vendeur",
+    magasinier: "Magasinier",
+    comptable: "Comptable",
+  };
+
   const content = document.getElementById("pageContent");
   content.innerHTML = `
+    <div class="card" id="welcomeCard" style="display:none;padding:16px 20px"></div>
     <div class="kpi-grid" id="kpiGrid">
       <div class="kpi"><div class="label">Chiffre d'affaires</div><div class="value orange">—</div></div>
       <div class="kpi"><div class="label">Commandes</div><div class="value">—</div></div>
@@ -41,10 +49,18 @@
 
   async function load() {
     try {
-      const [dash, orders] = await Promise.all([
+      const [dash, orders, user] = await Promise.all([
         api("/api/dashboard"),
         api("/api/commandes"),
+        api("/api/auth/me"),
       ]);
+
+      const roleLabel = user.role === "owner" ? "Propriétaire" : (EMPLOYEE_ROLE_LABELS[user.employee_role] || "Employé");
+      document.getElementById("welcomeCard").style.display = "block";
+      document.getElementById("welcomeCard").innerHTML = `
+        <span style="font-size:15px">👋 Bonjour, <strong>${user.prenom} ${user.nom}</strong></span>
+        <span class="badge gray" style="margin-left:8px">${roleLabel}</span>
+      `;
 
       const values = document.querySelectorAll("#kpiGrid .value");
       values[0].textContent = fmtFCFA(dash.chiffre_affaires);

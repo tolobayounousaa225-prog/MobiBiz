@@ -95,6 +95,26 @@ Implémenté et testé de bout en bout :
   `shops.prochain_paiement_le` (+30 jours). Dashboard admin : section « échéances
   proches » (badge rouge en retard, orange ≤5 jours) — pas d'auto-suspension à
   l'échéance pour l'instant, décision manuelle de l'admin.
+- **Journal d'audit** ✅ — `AuditLog` trace chaque action admin (suspension, plan,
+  paiement, paramètres, création d'admin, statut de ticket) avec qui/quand/quoi.
+  Consultable sur `admin-journal.html`.
+- **Essai gratuit auto-expirable** ✅ — nouvelle boutique = 14 jours d'essai
+  (`plans.TRIAL_DAYS`), `essai_expire_le` fixé à l'inscription. Vérification
+  paresseuse dans `deps.get_current_shop` (pas de tâche planifiée) : au premier accès
+  après l'échéance, bascule automatiquement en suspendu et se persiste.
+- **Support / tickets** ✅ — `support.html` (boutique) / `admin-tickets.html` (admin),
+  statut ouvert/résolu, fil de messages.
+- **Plans avec avantages et souscription** ✅ — `app/plans.py` centralise prix et
+  limites par plan (produits/employés/boutique publique), exposé via
+  `GET /api/abonnement/plans` et affiché sur `plans.html`. Limites appliquées côté
+  serveur. Souscription en libre-service (immédiate, sans validation admin) — le
+  paiement reste suivi séparément (QR Wave), un plan choisi mais non payé finit par
+  apparaître en retard dans le dashboard admin.
+- **Comptes admin depuis l'interface** ✅ — `POST /api/admin/administrateurs`,
+  réservé aux admins existants (toujours aucune auto-inscription publique).
+- **Statistiques d'évolution** ✅ — nouvelles boutiques/commandes/CA par mois
+  (`GET /api/admin/statistiques/evolution`), graphique en barres SVG fait main sur
+  `admin-dashboard.html` (pas de dépendance externe).
 
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en

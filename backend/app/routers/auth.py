@@ -6,6 +6,7 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..rate_limit import enforce_login_rate_limit
 from ..security import create_access_token, hash_password, verify_password
+from ..slug_utils import generate_unique_shop_slug
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -32,7 +33,8 @@ def register(payload: schemas.RegisterIn, db: Session = Depends(get_db)):
     db.add(user)
     db.flush()
 
-    shop = models.Shop(owner_id=user.id, nom=payload.boutique_nom)
+    slug = generate_unique_shop_slug(db, payload.boutique_nom)
+    shop = models.Shop(owner_id=user.id, nom=payload.boutique_nom, slug=slug)
     db.add(shop)
     db.commit()
 

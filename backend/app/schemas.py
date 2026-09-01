@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from .models import OrderStatus, PaiementStatut, UserRole
+from .models import EmployeeRole, ExpenseCategory, NotificationType, OrderStatus, PaiementStatut, UserRole
 
 
 # ---------- Auth ----------
@@ -33,6 +33,7 @@ class UserOut(BaseModel):
     telephone: str
     email: EmailStr | None = None
     role: UserRole
+    employee_role: EmployeeRole | None = None
 
 
 # ---------- Shop ----------
@@ -45,12 +46,14 @@ class ShopIn(BaseModel):
     commune: str | None = None
     logo_url: str | None = None
     wave_payment_link: str | None = None
+    boutique_publique_active: bool = False
 
 
 class ShopOut(ShopIn):
     model_config = ConfigDict(from_attributes=True)
     id: int
     owner_id: int
+    slug: str
     created_at: datetime
 
 
@@ -170,3 +173,106 @@ class DashboardOut(BaseModel):
     benefice_estime: float
     impayes: float
     produits_stock_faible: int
+
+
+# ---------- Employés ----------
+class EmployeeIn(BaseModel):
+    nom: str
+    prenom: str
+    telephone: str
+    password: str = Field(min_length=6)
+    employee_role: EmployeeRole
+
+
+class EmployeeUpdateIn(BaseModel):
+    employee_role: EmployeeRole
+    actif: bool = True
+
+
+class EmployeeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nom: str
+    prenom: str
+    telephone: str
+    employee_role: EmployeeRole | None = None
+    actif: bool
+    created_at: datetime
+
+
+# ---------- Dépenses ----------
+class ExpenseIn(BaseModel):
+    categorie: ExpenseCategory
+    libelle: str
+    montant: float = Field(ge=0)
+    date: str  # ISO yyyy-mm-dd
+
+
+class ExpenseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    categorie: ExpenseCategory
+    libelle: str
+    montant: float
+    date: object
+    created_at: datetime
+
+
+class FinanceSummaryOut(BaseModel):
+    chiffre_affaires: float
+    cout_produits: float
+    depenses: float
+    benefice: float
+
+
+# ---------- Notifications ----------
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    type: NotificationType
+    message: str
+    order_id: int | None = None
+    lu: bool
+    created_at: datetime
+
+
+# ---------- Boutique publique ----------
+class PublicProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nom: str
+    description: str | None = None
+    prix_vente: float
+    image_url: str | None = None
+    stock: int
+    category_id: int | None = None
+
+
+class PublicShopOut(BaseModel):
+    nom: str
+    description: str | None = None
+    telephone: str | None = None
+    whatsapp: str | None = None
+    adresse: str | None = None
+    commune: str | None = None
+    logo_url: str | None = None
+    produits: list[PublicProductOut]
+    categories: list[CategoryOut]
+
+
+class PublicOrderItemIn(BaseModel):
+    product_id: int
+    quantite: int = Field(gt=0)
+
+
+class PublicOrderIn(BaseModel):
+    client_nom: str
+    client_telephone: str
+    client_commune: str | None = None
+    items: list[PublicOrderItemIn]
+    notes: str | None = None
+
+
+class PublicOrderOut(BaseModel):
+    numero: str
+    total: float

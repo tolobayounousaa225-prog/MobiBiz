@@ -1,10 +1,23 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import models
 from .config import settings
 from .migrations import run_startup_migrations
-from .routers import auth, categories, customers, dashboard, orders, products, reports, shops, stock
+from .routers import (
+    auth,
+    categories,
+    customers,
+    dashboard,
+    employees,
+    finances,
+    notifications,
+    orders,
+    products,
+    public,
+    reports,
+    shops,
+    stock,
+)
 
 run_startup_migrations()
 
@@ -27,6 +40,10 @@ app.include_router(orders.router)
 app.include_router(stock.router)
 app.include_router(dashboard.router)
 app.include_router(reports.router)
+app.include_router(employees.router)
+app.include_router(finances.router)
+app.include_router(notifications.router)
+app.include_router(public.router)
 
 
 @app.get("/api/health")

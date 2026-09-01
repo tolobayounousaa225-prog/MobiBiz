@@ -13,7 +13,7 @@
 <script>
   renderLayout("clients", "Clients", "Votre fichier client");
 
-  document.getElementById("topbarActions").innerHTML = `<button class="btn" id="newCustomerBtn">+ Nouveau client</button>`;
+  document.getElementById("topbarActions").insertAdjacentHTML("afterbegin", `<button class="btn" id="newCustomerBtn">+ Nouveau client</button>`);
 
   const SEGMENT_LABELS = {
     nouveau: ["Nouveau", "gray"],

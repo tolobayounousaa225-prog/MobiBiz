@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_shop
+from ..deps import get_current_shop, require_module
+from ..notifications import notify
 
-router = APIRouter(prefix="/api/commandes", tags=["commandes"])
+router = APIRouter(prefix="/api/commandes", tags=["commandes"], dependencies=[Depends(require_module("commandes"))])
 
 # Transitions autorisées pour la machine à états des commandes (section 13 du cahier des charges)
 ALLOWED_TRANSITIONS: dict[models.OrderStatus, set[models.OrderStatus]] = {
@@ -112,8 +113,15 @@ def create_order(
                 detail=f"Stock insuffisant pour « {product.nom} » (disponible : {product.stock})",
             )
 
+        stock_avant = product.stock
         product.stock -= item.quantite
         db.add(models.StockMovement(product_id=product.id, type=models.StockMovementType.VENTE, quantite=-item.quantite))
+
+        if product.stock <= product.seuil_alerte < stock_avant:
+            notify(
+                db, shop.id, models.NotificationType.STOCK_FAIBLE,
+                f"Stock faible : « {product.nom} » (reste {product.stock})",
+            )
 
         order_item = models.OrderItem(
             order_id=order.id,
@@ -126,6 +134,11 @@ def create_order(
         sous_total += product.prix_vente * item.quantite
 
     order.total = max(sous_total - payload.reduction, 0) + payload.frais_livraison
+    notify(
+        db, shop.id, models.NotificationType.NOUVELLE_COMMANDE,
+        f"Nouvelle commande {order.numero} de {customer.nom} — {order.total:.0f} FCFA",
+        order_id=order.id,
+    )
     db.commit()
     db.refresh(order)
     return order
@@ -177,6 +190,12 @@ def update_order_payment(
     db: Session = Depends(get_db),
 ):
     order = _get_owned_order(db, shop, order_id)
+    if payload.paiement_statut == models.PaiementStatut.PAYE and order.paiement_statut != models.PaiementStatut.PAYE:
+        notify(
+            db, shop.id, models.NotificationType.PAIEMENT_RECU,
+            f"Paiement reçu pour {order.numero} — {order.total:.0f} FCFA",
+            order_id=order.id,
+        )
     order.paiement_statut = payload.paiement_statut
     db.commit()
     db.refresh(order)

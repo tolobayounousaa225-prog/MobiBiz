@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_shop
+from ..deps import get_current_shop, require_any_module, require_module
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
@@ -20,7 +20,11 @@ def _get_owned_category(db: Session, shop: models.Shop, category_id: int) -> mod
 
 
 @router.get("", response_model=list[schemas.CategoryOut])
-def list_categories(shop: models.Shop = Depends(get_current_shop), db: Session = Depends(get_db)):
+def list_categories(
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_any_module("produits", "commandes", "stock")),
+    db: Session = Depends(get_db),
+):
     return db.query(models.Category).filter(models.Category.shop_id == shop.id).order_by(models.Category.nom).all()
 
 
@@ -28,6 +32,7 @@ def list_categories(shop: models.Shop = Depends(get_current_shop), db: Session =
 def create_category(
     payload: schemas.CategoryIn,
     shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
     db: Session = Depends(get_db),
 ):
     category = models.Category(shop_id=shop.id, nom=payload.nom)
@@ -42,6 +47,7 @@ def update_category(
     category_id: int,
     payload: schemas.CategoryIn,
     shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
     db: Session = Depends(get_db),
 ):
     category = _get_owned_category(db, shop, category_id)
@@ -55,6 +61,7 @@ def update_category(
 def delete_category(
     category_id: int,
     shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
     db: Session = Depends(get_db),
 ):
     category = _get_owned_category(db, shop, category_id)

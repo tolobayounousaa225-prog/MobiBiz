@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employés — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("employes", "Employés", "Gérez les accès de votre équipe");
+
+  document.getElementById("topbarActions").insertAdjacentHTML("afterbegin", `<button class="btn" id="newEmployeeBtn">+ Nouvel employé</button>`);
+
+  const ROLE_LABELS = {
+    manager: ["Manager", "blue"],
+    vendeur: ["Vendeur", "orange"],
+    magasinier: ["Magasinier", "amber"],
+    comptable: ["Comptable", "green"],
+  };
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nom</th><th>Téléphone</th><th>Rôle</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="employeesBody"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="employeeModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeEmployeeModal">&times;</button>
+        <h2 id="employeeModalTitle">Nouvel employé</h2>
+        <form id="employeeForm">
+          <input type="hidden" id="employeeId">
+          <div class="field-row">
+            <div><label for="e_prenom">Prénom</label><input type="text" id="e_prenom" required></div>
+            <div><label for="e_nom">Nom</label><input type="text" id="e_nom" required></div>
+          </div>
+          <label for="e_telephone">Téléphone</label>
+          <input type="tel" id="e_telephone" required>
+
+          <label for="e_password">Mot de passe</label>
+          <input type="password" id="e_password" minlength="6" placeholder="6 caractères minimum">
+
+          <label for="e_role">Rôle</label>
+          <select id="e_role" required>
+            <option value="manager">Manager — produits, commandes, stock</option>
+            <option value="vendeur">Vendeur — commandes uniquement</option>
+            <option value="magasinier">Magasinier — stock uniquement</option>
+            <option value="comptable">Comptable — finances uniquement</option>
+          </select>
+
+          <div id="e_actif_wrap" class="hidden">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+              <input type="checkbox" id="e_actif" style="width:auto"> Compte actif
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `);
+
+  let employees = [];
+
+  function renderEmployees() {
+    const body = document.getElementById("employeesBody");
+    if (employees.length === 0) {
+      body.innerHTML = `<tr><td colspan="5" class="empty">Aucun employé — vous êtes seul sur cette boutique</td></tr>`;
+      return;
+    }
+    body.innerHTML = employees.map((e) => `
+      <tr>
+        <td>${e.prenom} ${e.nom}</td>
+        <td>${e.telephone}</td>
+        <td>${badge(ROLE_LABELS, e.employee_role)}</td>
+        <td>${e.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Désactivé</span>`}</td>
+        <td><button class="btn secondary small" data-edit="${e.id}">Modifier</button></td>
+      </tr>
+    `).join("");
+
+    body.querySelectorAll("[data-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => openEmployeeModal(employees.find((e) => e.id === Number(btn.dataset.edit))));
+    });
+  }
+
+  async function loadEmployees() {
+    employees = await api("/api/employes");
+    renderEmployees();
+  }
+
+  function openEmployeeModal(employee) {
+    document.getElementById("employeeModalTitle").textContent = employee ? "Modifier l'employé" : "Nouvel employé";
+    document.getElementById("employeeId").value = employee ? employee.id : "";
+    document.getElementById("e_prenom").value = employee ? employee.prenom : "";
+    document.getElementById("e_nom").value = employee ? employee.nom : "";
+    document.getElementById("e_telephone").value = employee ? employee.telephone : "";
+    document.getElementById("e_telephone").disabled = !!employee;
+    document.getElementById("e_password").value = "";
+    document.getElementById("e_password").required = !employee;
+    const passwordLabel = document.querySelector('label[for="e_password"]');
+    passwordLabel.style.display = employee ? "none" : "block";
+    document.getElementById("e_password").style.display = employee ? "none" : "block";
+    document.getElementById("e_role").value = employee ? employee.employee_role : "vendeur";
+    document.getElementById("e_actif_wrap").classList.toggle("hidden", !employee);
+    document.getElementById("e_actif").checked = employee ? employee.actif : true;
+    document.getElementById("employeeModalBackdrop").classList.remove("hidden");
+  }
+
+  document.getElementById("newEmployeeBtn").addEventListener("click", () => openEmployeeModal(null));
+  document.getElementById("closeEmployeeModal").addEventListener("click", () =>
+    document.getElementById("employeeModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("employeeForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = document.getElementById("employeeId").value;
+    try {
+      if (id) {
+        await api(`/api/employes/${id}`, {
+          method: "PUT",
+          body: {
+            employee_role: document.getElementById("e_role").value,
+            actif: document.getElementById("e_actif").checked,
+          },
+        });
+      } else {
+        await api("/api/employes", {
+          method: "POST",
+          body: {
+            prenom: document.getElementById("e_prenom").value.trim(),
+            nom: document.getElementById("e_nom").value.trim(),
+            telephone: document.getElementById("e_telephone").value.trim(),
+            password: document.getElementById("e_password").value,
+            employee_role: document.getElementById("e_role").value,
+          },
+        });
+      }
+      document.getElementById("employeeModalBackdrop").classList.add("hidden");
+      await loadEmployees();
+      toast("Employé enregistré", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  loadEmployees().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

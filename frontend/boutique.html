@@ -41,6 +41,12 @@
           scannent avec l'app Wave pour vous payer.
         </p>
 
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:18px">
+          <input type="checkbox" id="s_publique" style="width:auto">
+          Activer la boutique publique (consultable et commandable par vos clients sans compte)
+        </label>
+        <div id="publicLinkBox" style="margin:8px 0 0"></div>
+
         <div class="form-actions">
           <button type="submit" class="btn">Enregistrer</button>
         </div>
@@ -65,6 +71,30 @@
     }
   }
 
+  function publicShopUrl(slug) {
+    const base = location.pathname.substring(0, location.pathname.lastIndexOf("/") + 1);
+    return `${location.origin}${base}boutique-publique.html?slug=${encodeURIComponent(slug)}`;
+  }
+
+  function renderPublicLinkBox(shop) {
+    const box = document.getElementById("publicLinkBox");
+    if (!shop.boutique_publique_active) { box.innerHTML = ""; return; }
+    const url = publicShopUrl(shop.slug);
+    box.innerHTML = `
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 4px">Lien à partager avec vos clients :</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" readonly value="${url}" style="flex:1" onclick="this.select()">
+        <button type="button" class="btn secondary small" id="copyPublicLinkBtn">Copier</button>
+      </div>
+    `;
+    document.getElementById("copyPublicLinkBtn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast("Lien copié", "success");
+      } catch (_) { toast("Impossible de copier automatiquement", "error"); }
+    });
+  }
+
   async function load() {
     const shop = await api("/api/boutique");
     document.getElementById("s_nom").value = shop.nom || "";
@@ -74,6 +104,8 @@
     document.getElementById("s_adresse").value = shop.adresse || "";
     document.getElementById("s_commune").value = shop.commune || "";
     document.getElementById("s_wave").value = shop.wave_payment_link || "";
+    document.getElementById("s_publique").checked = !!shop.boutique_publique_active;
+    renderPublicLinkBox(shop);
     await loadWaveQr();
   }
 
@@ -88,10 +120,12 @@
       commune: document.getElementById("s_commune").value.trim() || null,
       logo_url: null,
       wave_payment_link: document.getElementById("s_wave").value.trim() || null,
+      boutique_publique_active: document.getElementById("s_publique").checked,
     };
     try {
-      await api("/api/boutique", { method: "PUT", body: payload });
+      const shop = await api("/api/boutique", { method: "PUT", body: payload });
       toast("Boutique mise à jour", "success");
+      renderPublicLinkBox(shop);
       await loadWaveQr();
     } catch (err) { toast(err.message, "error"); }
   });

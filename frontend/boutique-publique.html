@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boutique — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  body { background: var(--bg); }
+  .shop-header {
+    background: var(--ink); color: #fff; padding: 32px 20px; text-align: center;
+  }
+  .shop-header h1 { margin: 0 0 6px; font-size: 24px; }
+  .shop-header p { margin: 2px 0; color: #c7c9d8; font-size: 13.5px; }
+  .shop-wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 100px; }
+  .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+  .product-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .product-card .name { font-weight: 600; font-size: 14.5px; margin-bottom: 4px; }
+  .product-card .price { color: var(--orange-dark); font-weight: 700; margin-bottom: 10px; }
+  .product-card .desc { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 10px; flex: 1; }
+  .cart-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; background: var(--ink); color: #fff;
+    padding: 14px 20px; display: none; align-items: center; justify-content: space-between; z-index: 40;
+  }
+  .cart-bar.visible { display: flex; }
+  .category-tabs { display: flex; gap: 8px; overflow-x: auto; margin: 18px 0; padding-bottom: 4px; }
+  .category-tabs button {
+    border: 1px solid var(--border); background: #fff; padding: 6px 14px; border-radius: 999px;
+    font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .category-tabs button.active { background: var(--orange); color: #fff; border-color: var(--orange); }
+</style>
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const slug = params.get("slug");
+  let shopData = null;
+  let categories = [];
+  let cart = {}; // product_id -> { product, qty }
+
+  async function loadShop() {
+    if (!slug) {
+      document.body.innerHTML = `<div class="shop-wrap"><p class="empty">Boutique introuvable (lien invalide).</p></div>`;
+      return;
+    }
+    try {
+      shopData = await api(`/api/public/boutiques/${encodeURIComponent(slug)}`);
+      categories = shopData.categories;
+      renderShop();
+    } catch (err) {
+      document.body.innerHTML = `<div class="shop-wrap"><p class="empty">Cette boutique n'est pas disponible actuellement.</p></div>`;
+    }
+  }
+
+  function categoryName(id) {
+    const c = categories.find((c) => c.id === id);
+    return c ? c.nom : null;
+  }
+
+  function renderShop() {
+    document.body.insertAdjacentHTML("afterbegin", `
+      <div class="shop-header">
+        <h1>${shopData.nom}</h1>
+        ${shopData.description ? `<p>${shopData.description}</p>` : ""}
+        ${shopData.commune ? `<p>📍 ${shopData.commune}</p>` : ""}
+        ${shopData.whatsapp ? `<p>📱 WhatsApp : ${shopData.whatsapp}</p>` : ""}
+      </div>
+      <div class="shop-wrap">
+        <div class="category-tabs" id="categoryTabs"></div>
+        <div class="product-grid" id="productGrid"></div>
+      </div>
+      <div class="cart-bar" id="cartBar">
+        <span id="cartSummary"></span>
+        <button class="btn" id="openCheckoutBtn">Commander</button>
+      </div>
+    `);
+
+    const tabs = document.getElementById("categoryTabs");
+    tabs.innerHTML = `<button class="active" data-cat="">Tous</button>` +
+      categories.map((c) => `<button data-cat="${c.id}">${c.nom}</button>`).join("");
+    tabs.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        tabs.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderProducts(btn.dataset.cat);
+      });
+    });
+
+    renderProducts("");
+    injectCheckoutModal();
+  }
+
+  function renderProducts(categoryFilter) {
+    const grid = document.getElementById("productGrid");
+    const list = categoryFilter
+      ? shopData.produits.filter((p) => String(p.category_id || "") === categoryFilter)
+      : shopData.produits;
+
+    if (list.length === 0) {
+      grid.innerHTML = `<p class="empty">Aucun produit disponible</p>`;
+      return;
+    }
+
+    grid.innerHTML = list.map((p) => `
+      <div class="product-card">
+        <div class="name">${p.nom}</div>
+        ${categoryName(p.category_id) ? `<div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:4px">${categoryName(p.category_id)}</div>` : ""}
+        <div class="desc">${p.description || ""}</div>
+        <div class="price">${fmtFCFA(p.prix_vente)}</div>
+        <button class="btn small" data-add="${p.id}">Ajouter</button>
+      </div>
+    `).join("");
+
+    grid.querySelectorAll("[data-add]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const product = shopData.produits.find((p) => p.id === Number(btn.dataset.add));
+        addToCart(product);
+      });
+    });
+  }
+
+  function addToCart(product) {
+    if (!cart[product.id]) cart[product.id] = { product, qty: 0 };
+    if (cart[product.id].qty >= product.stock) {
+      toast("Stock disponible atteint", "error");
+      return;
+    }
+    cart[product.id].qty += 1;
+    updateCartBar();
+    toast(`${product.nom} ajouté`, "success");
+  }
+
+  function updateCartBar() {
+    const entries = Object.values(cart).filter((e) => e.qty > 0);
+    const bar = document.getElementById("cartBar");
+    if (entries.length === 0) { bar.classList.remove("visible"); return; }
+    const totalQty = entries.reduce((s, e) => s + e.qty, 0);
+    const total = entries.reduce((s, e) => s + e.qty * e.product.prix_vente, 0);
+    document.getElementById("cartSummary").textContent = `${totalQty} article(s) — ${fmtFCFA(total)}`;
+    bar.classList.add("visible");
+  }
+
+  function injectCheckoutModal() {
+    document.body.insertAdjacentHTML("beforeend", `
+      <div class="modal-backdrop hidden" id="checkoutBackdrop">
+        <div class="modal">
+          <button class="modal-close" id="closeCheckout">&times;</button>
+          <h2>Finaliser la commande</h2>
+          <div id="cartItemsList"></div>
+          <form id="checkoutForm">
+            <label for="pc_nom">Votre nom</label>
+            <input type="text" id="pc_nom" required>
+            <label for="pc_tel">Votre téléphone</label>
+            <input type="tel" id="pc_tel" required>
+            <label for="pc_commune">Commune (optionnel)</label>
+            <input type="text" id="pc_commune">
+            <div class="form-actions">
+              <button type="submit" class="btn" id="submitOrderBtn">Envoyer la commande</button>
+            </div>
+          </form>
+          <div id="checkoutResult"></div>
+        </div>
+      </div>
+    `);
+
+    document.getElementById("openCheckoutBtn").addEventListener("click", () => {
+      const entries = Object.values(cart).filter((e) => e.qty > 0);
+      document.getElementById("cartItemsList").innerHTML = entries.map((e) => `
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px">
+          <span>${e.product.nom} × ${e.qty}</span>
+          <span>${fmtFCFA(e.product.prix_vente * e.qty)}</span>
+        </div>
+      `).join("");
+      document.getElementById("checkoutResult").innerHTML = "";
+      document.getElementById("checkoutForm").style.display = "block";
+      document.getElementById("checkoutBackdrop").classList.remove("hidden");
+    });
+
+    document.getElementById("closeCheckout").addEventListener("click", () =>
+      document.getElementById("checkoutBackdrop").classList.add("hidden"));
+
+    document.getElementById("checkoutForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const entries = Object.values(cart).filter((v) => v.qty > 0);
+      if (entries.length === 0) { toast("Votre panier est vide", "error"); return; }
+
+      const btn = document.getElementById("submitOrderBtn");
+      btn.disabled = true;
+      try {
+        const result = await api(`/api/public/boutiques/${encodeURIComponent(slug)}/commandes`, {
+          method: "POST",
+          body: {
+            client_nom: document.getElementById("pc_nom").value.trim(),
+            client_telephone: document.getElementById("pc_tel").value.trim(),
+            client_commune: document.getElementById("pc_commune").value.trim() || null,
+            items: entries.map((e) => ({ product_id: e.product.id, quantite: e.qty })),
+          },
+        });
+        document.getElementById("checkoutForm").style.display = "none";
+        document.getElementById("checkoutResult").innerHTML = `
+          <p style="text-align:center;padding:10px 0">
+            ✅ Commande <strong>${result.numero}</strong> envoyée !<br>
+            Total : <strong>${fmtFCFA(result.total)}</strong><br>
+            <span style="color:var(--ink-soft);font-size:13px">Le commerçant vous contactera pour la suite.</span>
+          </p>
+        `;
+        cart = {};
+        updateCartBar();
+      } catch (err) {
+        toast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
+  loadShop();
+</script>
+</body>
+</html>

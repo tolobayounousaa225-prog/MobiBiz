@@ -13,7 +13,10 @@
 <script>
   renderLayout("produits", "Produits", "Gérez votre catalogue");
 
-  document.getElementById("topbarActions").innerHTML = `<button class="btn" id="newProductBtn">+ Nouveau produit</button>`;
+  document.getElementById("topbarActions").insertAdjacentHTML("afterbegin", `
+    <button class="btn secondary" id="importProductsBtn">Importer</button>
+    <button class="btn" id="newProductBtn">+ Nouveau produit</button>
+  `);
 
   const content = document.getElementById("pageContent");
   content.innerHTML = `
@@ -94,6 +97,26 @@
           <button type="submit" class="btn">Ajouter</button>
         </form>
         <div id="categoryList"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="importModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeImportModal">&times;</button>
+        <h2>Importer des produits</h2>
+        <p style="color:var(--ink-soft);font-size:13.5px">
+          Fichier CSV ou Excel (.xlsx) avec les colonnes : nom, référence, catégorie,
+          prix_achat, prix_vente, stock, seuil_alerte.
+        </p>
+        <a href="#" id="downloadTemplateLink" class="btn secondary small" style="margin-bottom:14px;display:inline-flex">Télécharger le modèle CSV</a>
+
+        <label for="importFileInput">Fichier à importer</label>
+        <input type="file" id="importFileInput" accept=".csv,.xlsx">
+
+        <div class="form-actions">
+          <button type="button" class="btn" id="runImportBtn">Importer</button>
+        </div>
+        <div id="importResult" style="margin-top:14px"></div>
       </div>
     </div>
   `);
@@ -250,6 +273,55 @@
       await loadCategories();
       toast("Catégorie ajoutée", "success");
     } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("importProductsBtn").addEventListener("click", () => {
+    document.getElementById("importFileInput").value = "";
+    document.getElementById("importResult").innerHTML = "";
+    document.getElementById("importModalBackdrop").classList.remove("hidden");
+  });
+  document.getElementById("closeImportModal").addEventListener("click", () =>
+    document.getElementById("importModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("downloadTemplateLink").addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const blob = await api("/api/produits/modele.csv", { isBlob: true });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "modele_import_produits.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("runImportBtn").addEventListener("click", async () => {
+    const fileInput = document.getElementById("importFileInput");
+    const resultBox = document.getElementById("importResult");
+    if (!fileInput.files.length) { toast("Choisissez un fichier", "error"); return; }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    resultBox.innerHTML = `<p class="empty">Import en cours…</p>`;
+    try {
+      const result = await api("/api/produits/import", { method: "POST", formData });
+      let html = `<p><strong>${result.crees}</strong> produit(s) importé(s).</p>`;
+      if (result.erreurs.length > 0) {
+        html += `<p style="color:var(--red)">${result.erreurs.length} ligne(s) en erreur :</p>
+          <ul style="font-size:13px;color:var(--ink-soft)">
+            ${result.erreurs.map((e) => `<li>Ligne ${e.ligne} : ${e.message}</li>`).join("")}
+          </ul>`;
+      }
+      resultBox.innerHTML = html;
+      await loadProducts();
+      toast("Import terminé", "success");
+    } catch (err) {
+      resultBox.innerHTML = "";
+      toast(err.message, "error");
+    }
   });
 
   document.getElementById("searchInput").addEventListener("input", renderProducts);

@@ -13,7 +13,7 @@
 <script>
   renderLayout("commandes", "Commandes", "Suivez vos ventes du début à la fin");
 
-  document.getElementById("topbarActions").innerHTML = `<button class="btn" id="newOrderBtn">+ Nouvelle commande</button>`;
+  document.getElementById("topbarActions").insertAdjacentHTML("afterbegin", `<button class="btn" id="newOrderBtn">+ Nouvelle commande</button>`);
 
   const content = document.getElementById("pageContent");
   content.innerHTML = `

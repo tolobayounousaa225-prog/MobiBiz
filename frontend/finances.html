@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finances — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("finances", "Finances", "Revenus, dépenses et bénéfice réel");
+
+  document.getElementById("topbarActions").insertAdjacentHTML("afterbegin", `<button class="btn" id="newExpenseBtn">+ Nouvelle dépense</button>`);
+
+  const CATEGORY_LABELS = {
+    achats: "Achats",
+    transport: "Transport",
+    publicite: "Publicité",
+    emballage: "Emballage",
+    salaires: "Salaires",
+    autres: "Autres charges",
+  };
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">Chiffre d'affaires</div><div class="value orange" id="kpiCa">—</div></div>
+      <div class="kpi"><div class="label">Coût des produits</div><div class="value" id="kpiCout">—</div></div>
+      <div class="kpi"><div class="label">Dépenses</div><div class="value red" id="kpiDepenses">—</div></div>
+      <div class="kpi"><div class="label">Bénéfice réel</div><div class="value green" id="kpiBenefice">—</div></div>
+    </div>
+    <div class="card">
+      <h2>Dépenses</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Catégorie</th><th>Libellé</th><th>Montant</th><th></th></tr></thead>
+          <tbody id="expensesBody"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="expenseModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeExpenseModal">&times;</button>
+        <h2>Nouvelle dépense</h2>
+        <form id="expenseForm">
+          <label for="x_categorie">Catégorie</label>
+          <select id="x_categorie">
+            ${Object.entries(CATEGORY_LABELS).map(([k, label]) => `<option value="${k}">${label}</option>`).join("")}
+          </select>
+
+          <label for="x_libelle">Libellé</label>
+          <input type="text" id="x_libelle" required placeholder="Ex: Essence livraison">
+
+          <div class="field-row">
+            <div><label for="x_montant">Montant (FCFA)</label><input type="number" id="x_montant" min="0" required></div>
+            <div><label for="x_date">Date</label><input type="date" id="x_date" required></div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `);
+
+  let expenses = [];
+
+  function renderExpenses() {
+    const body = document.getElementById("expensesBody");
+    if (expenses.length === 0) {
+      body.innerHTML = `<tr><td colspan="5" class="empty">Aucune dépense enregistrée</td></tr>`;
+      return;
+    }
+    body.innerHTML = expenses.map((x) => `
+      <tr>
+        <td>${fmtDate(x.date)}</td>
+        <td>${CATEGORY_LABELS[x.categorie] || x.categorie}</td>
+        <td>${x.libelle}</td>
+        <td>${fmtFCFA(x.montant)}</td>
+        <td><button class="btn danger small" data-del="${x.id}">Supprimer</button></td>
+      </tr>
+    `).join("");
+
+    body.querySelectorAll("[data-del]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Supprimer cette dépense ?")) return;
+        try {
+          await api(`/api/depenses/${btn.dataset.del}`, { method: "DELETE" });
+          await Promise.all([loadExpenses(), loadSummary()]);
+          toast("Dépense supprimée", "success");
+        } catch (err) { toast(err.message, "error"); }
+      });
+    });
+  }
+
+  async function loadExpenses() {
+    expenses = await api("/api/depenses");
+    renderExpenses();
+  }
+
+  async function loadSummary() {
+    const s = await api("/api/finances/resume");
+    document.getElementById("kpiCa").textContent = fmtFCFA(s.chiffre_affaires);
+    document.getElementById("kpiCout").textContent = fmtFCFA(s.cout_produits);
+    document.getElementById("kpiDepenses").textContent = fmtFCFA(s.depenses);
+    document.getElementById("kpiBenefice").textContent = fmtFCFA(s.benefice);
+  }
+
+  document.getElementById("newExpenseBtn").addEventListener("click", () => {
+    document.getElementById("expenseForm").reset();
+    document.getElementById("x_date").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("expenseModalBackdrop").classList.remove("hidden");
+  });
+  document.getElementById("closeExpenseModal").addEventListener("click", () =>
+    document.getElementById("expenseModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("expenseForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/depenses", {
+        method: "POST",
+        body: {
+          categorie: document.getElementById("x_categorie").value,
+          libelle: document.getElementById("x_libelle").value.trim(),
+          montant: Number(document.getElementById("x_montant").value),
+          date: document.getElementById("x_date").value,
+        },
+      });
+      document.getElementById("expenseModalBackdrop").classList.add("hidden");
+      await Promise.all([loadExpenses(), loadSummary()]);
+      toast("Dépense ajoutée", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  Promise.all([loadExpenses(), loadSummary()]).catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

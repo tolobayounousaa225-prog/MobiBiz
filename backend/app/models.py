@@ -1,8 +1,10 @@
 import enum
+from datetime import date as date_type
 from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -30,6 +32,40 @@ def ensure_aware(dt: datetime) -> datetime:
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
     OWNER = "owner"
+    EMPLOYEE = "employee"
+
+
+class EmployeeRole(str, enum.Enum):
+    MANAGER = "manager"
+    VENDEUR = "vendeur"
+    MAGASINIER = "magasinier"
+    COMPTABLE = "comptable"
+
+
+# Matrice des droits par rôle (section 24 du cahier des charges) : modules avec
+# accès complet (lecture + écriture) pour chaque rôle employé. Le propriétaire a
+# toujours accès à tout, indépendamment de cette table.
+EMPLOYEE_MODULE_ACCESS: dict["EmployeeRole", set[str]] = {
+    EmployeeRole.MANAGER: {"produits", "commandes", "stock"},
+    EmployeeRole.VENDEUR: {"commandes"},
+    EmployeeRole.MAGASINIER: {"stock"},
+    EmployeeRole.COMPTABLE: {"finance"},
+}
+
+
+class ExpenseCategory(str, enum.Enum):
+    ACHATS = "achats"
+    TRANSPORT = "transport"
+    PUBLICITE = "publicite"
+    EMBALLAGE = "emballage"
+    SALAIRES = "salaires"
+    AUTRES = "autres"
+
+
+class NotificationType(str, enum.Enum):
+    NOUVELLE_COMMANDE = "nouvelle_commande"
+    STOCK_FAIBLE = "stock_faible"
+    PAIEMENT_RECU = "paiement_recu"
 
 
 class OrderStatus(str, enum.Enum):
@@ -69,9 +105,21 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.OWNER)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Uniquement pour role == EMPLOYEE : boutique et rôle métier de l'employé.
+    shop_id: Mapped[int | None] = mapped_column(ForeignKey("shops.id"), nullable=True, index=True)
+    employee_role: Mapped[EmployeeRole | None] = mapped_column(Enum(EmployeeRole), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
-    shops: Mapped[list["Shop"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    shops: Mapped[list["Shop"]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan", foreign_keys="Shop.owner_id"
+    )
+
+    def has_module_access(self, module: str) -> bool:
+        if self.role == UserRole.OWNER:
+            return True
+        if self.role == UserRole.EMPLOYEE and self.employee_role:
+            return module in EMPLOYEE_MODULE_ACCESS.get(self.employee_role, set())
+        return False
 
 
 class Shop(Base):
@@ -80,6 +128,7 @@ class Shop(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     nom: Mapped[str] = mapped_column(String(150))
+    slug: Mapped[str] = mapped_column(String(180), unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     telephone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     whatsapp: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -87,13 +136,16 @@ class Shop(Base):
     commune: Mapped[str | None] = mapped_column(String(120), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     wave_payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    boutique_publique_active: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
-    owner: Mapped["User"] = relationship(back_populates="shops")
+    owner: Mapped["User"] = relationship(back_populates="shops", foreign_keys=[owner_id])
     categories: Mapped[list["Category"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     products: Mapped[list["Product"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     customers: Mapped[list["Customer"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     orders: Mapped[list["Order"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+    expenses: Mapped[list["Expense"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+    notifications: Mapped[list["Notification"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
 
 
 class Category(Base):
@@ -194,3 +246,31 @@ class StockMovement(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     product: Mapped["Product"] = relationship(back_populates="stock_movements")
+
+
+class Expense(Base):
+    __tablename__ = "expenses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    categorie: Mapped[ExpenseCategory] = mapped_column(Enum(ExpenseCategory))
+    libelle: Mapped[str] = mapped_column(String(255))
+    montant: Mapped[float] = mapped_column(Float)
+    date: Mapped[date_type] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    shop: Mapped["Shop"] = relationship(back_populates="expenses")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    type: Mapped[NotificationType] = mapped_column(Enum(NotificationType))
+    message: Mapped[str] = mapped_column(String(500))
+    order_id: Mapped[int | None] = mapped_column(ForeignKey("orders.id"), nullable=True)
+    lu: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    shop: Mapped["Shop"] = relationship(back_populates="notifications")

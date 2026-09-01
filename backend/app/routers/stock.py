@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_shop
+from ..deps import get_current_shop, require_module
 
-router = APIRouter(prefix="/api/stock", tags=["stock"])
+router = APIRouter(prefix="/api/stock", tags=["stock"], dependencies=[Depends(require_module("stock"))])
 
 
 class StockMovementOut(BaseModel):

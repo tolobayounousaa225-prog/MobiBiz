@@ -22,16 +22,18 @@ function fmtDate(iso) {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-async function api(path, { method = "GET", body, isBlob = false } = {}) {
+async function api(path, { method = "GET", body, formData, isBlob = false } = {}) {
   const headers = {};
   const token = Auth.getToken();
   if (token) headers["Authorization"] = "Bearer " + token;
+  // Ne jamais fixer Content-Type pour FormData : le navigateur doit poser lui-même
+  // la frontière multipart, sinon la requête est mal formée côté serveur.
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
   const res = await fetch(API_BASE + path, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: formData || (body !== undefined ? JSON.stringify(body) : undefined),
   });
 
   if (!res.ok) {

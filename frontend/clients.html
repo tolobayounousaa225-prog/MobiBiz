@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clients — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("clients", "Clients", "Votre fichier client");
+
+  document.getElementById("topbarActions").innerHTML = `<button class="btn" id="newCustomerBtn">+ Nouveau client</button>`;
+
+  const SEGMENT_LABELS = {
+    nouveau: ["Nouveau", "gray"],
+    regulier: ["Régulier", "blue"],
+    vip: ["VIP", "orange"],
+    inactif: ["Inactif", "red"],
+  };
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <div class="toolbar">
+        <input type="search" id="searchInput" placeholder="Rechercher un client…">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nom</th><th>Téléphone</th><th>Commune</th><th>Segment</th><th>Total achats</th><th>Commandes</th><th></th></tr></thead>
+          <tbody id="customersBody"><tr><td colspan="7" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="customerModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeCustomerModal">&times;</button>
+        <h2 id="customerModalTitle">Nouveau client</h2>
+        <form id="customerForm">
+          <input type="hidden" id="customerId">
+          <label for="c_nom">Nom complet</label>
+          <input type="text" id="c_nom" required>
+
+          <label for="c_telephone">Téléphone</label>
+          <input type="tel" id="c_telephone">
+
+          <label for="c_email">Email</label>
+          <input type="email" id="c_email">
+
+          <div class="field-row">
+            <div>
+              <label for="c_adresse">Adresse</label>
+              <input type="text" id="c_adresse">
+            </div>
+            <div>
+              <label for="c_commune">Commune</label>
+              <input type="text" id="c_commune">
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn">Enregistrer</button>
+            <button type="button" class="btn danger hidden" id="deleteCustomerBtn">Supprimer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `);
+
+  let customers = [];
+
+  function renderCustomers() {
+    const q = document.getElementById("searchInput").value.toLowerCase();
+    const rows = customers.filter((c) => c.nom.toLowerCase().includes(q));
+    const body = document.getElementById("customersBody");
+    if (rows.length === 0) {
+      body.innerHTML = `<tr><td colspan="7" class="empty">Aucun client trouvé</td></tr>`;
+      return;
+    }
+    body.innerHTML = rows.map((c) => `
+      <tr>
+        <td>${c.nom}</td>
+        <td>${c.telephone || "-"}</td>
+        <td>${c.commune || "-"}</td>
+        <td>${badge(SEGMENT_LABELS, c.segment)}</td>
+        <td>${fmtFCFA(c.total_achats)}</td>
+        <td>${c.nombre_commandes}</td>
+        <td><button class="btn secondary small" data-edit="${c.id}">Modifier</button></td>
+      </tr>
+    `).join("");
+
+    body.querySelectorAll("[data-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => openCustomerModal(customers.find((c) => c.id === Number(btn.dataset.edit))));
+    });
+  }
+
+  async function loadCustomers() {
+    customers = await api("/api/clients");
+    renderCustomers();
+  }
+
+  function openCustomerModal(customer) {
+    document.getElementById("customerModalTitle").textContent = customer ? "Modifier le client" : "Nouveau client";
+    document.getElementById("customerId").value = customer ? customer.id : "";
+    document.getElementById("c_nom").value = customer ? customer.nom : "";
+    document.getElementById("c_telephone").value = customer ? (customer.telephone || "") : "";
+    document.getElementById("c_email").value = customer ? (customer.email || "") : "";
+    document.getElementById("c_adresse").value = customer ? (customer.adresse || "") : "";
+    document.getElementById("c_commune").value = customer ? (customer.commune || "") : "";
+    document.getElementById("deleteCustomerBtn").classList.toggle("hidden", !customer);
+    document.getElementById("customerModalBackdrop").classList.remove("hidden");
+  }
+
+  document.getElementById("newCustomerBtn").addEventListener("click", () => openCustomerModal(null));
+  document.getElementById("closeCustomerModal").addEventListener("click", () =>
+    document.getElementById("customerModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("customerForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = document.getElementById("customerId").value;
+    const payload = {
+      nom: document.getElementById("c_nom").value.trim(),
+      telephone: document.getElementById("c_telephone").value.trim() || null,
+      email: document.getElementById("c_email").value.trim() || null,
+      adresse: document.getElementById("c_adresse").value.trim() || null,
+      commune: document.getElementById("c_commune").value.trim() || null,
+    };
+    try {
+      if (id) {
+        await api(`/api/clients/${id}`, { method: "PUT", body: payload });
+      } else {
+        await api("/api/clients", { method: "POST", body: payload });
+      }
+      document.getElementById("customerModalBackdrop").classList.add("hidden");
+      await loadCustomers();
+      toast("Client enregistré", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("deleteCustomerBtn").addEventListener("click", async () => {
+    const id = document.getElementById("customerId").value;
+    if (!confirm("Supprimer ce client ?")) return;
+    try {
+      await api(`/api/clients/${id}`, { method: "DELETE" });
+      document.getElementById("customerModalBackdrop").classList.add("hidden");
+      await loadCustomers();
+      toast("Client supprimé", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("searchInput").addEventListener("input", renderCustomers);
+
+  loadCustomers().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ma boutique — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("boutique", "Ma boutique", "Informations affichées à vos clients");
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card" style="max-width:560px">
+      <form id="shopForm">
+        <label for="s_nom">Nom de la boutique</label>
+        <input type="text" id="s_nom" required>
+
+        <label for="s_description">Description</label>
+        <textarea id="s_description" rows="3"></textarea>
+
+        <div class="field-row">
+          <div><label for="s_telephone">Téléphone</label><input type="tel" id="s_telephone"></div>
+          <div><label for="s_whatsapp">WhatsApp</label><input type="tel" id="s_whatsapp"></div>
+        </div>
+
+        <div class="field-row">
+          <div><label for="s_adresse">Adresse</label><input type="text" id="s_adresse"></div>
+          <div><label for="s_commune">Commune</label><input type="text" id="s_commune"></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  async function load() {
+    const shop = await api("/api/boutique");
+    document.getElementById("s_nom").value = shop.nom || "";
+    document.getElementById("s_description").value = shop.description || "";
+    document.getElementById("s_telephone").value = shop.telephone || "";
+    document.getElementById("s_whatsapp").value = shop.whatsapp || "";
+    document.getElementById("s_adresse").value = shop.adresse || "";
+    document.getElementById("s_commune").value = shop.commune || "";
+  }
+
+  document.getElementById("shopForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+      nom: document.getElementById("s_nom").value.trim(),
+      description: document.getElementById("s_description").value.trim() || null,
+      telephone: document.getElementById("s_telephone").value.trim() || null,
+      whatsapp: document.getElementById("s_whatsapp").value.trim() || null,
+      adresse: document.getElementById("s_adresse").value.trim() || null,
+      commune: document.getElementById("s_commune").value.trim() || null,
+      logo_url: null,
+    };
+    try {
+      await api("/api/boutique", { method: "PUT", body: payload });
+      toast("Boutique mise à jour", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  load().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

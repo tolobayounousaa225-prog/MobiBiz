@@ -1,0 +1,195 @@
+import enum
+from datetime import datetime, timezone
+
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .database import Base
+
+
+def now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def ensure_aware(dt: datetime) -> datetime:
+    """SQLite drops tzinfo on stored datetimes even for a DateTime(timezone=True)
+    column, so a value read back can be naive while now_utc() is always aware.
+    Treat a naive value as UTC (the only timezone ever written) before comparing."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    OWNER = "owner"
+
+
+class OrderStatus(str, enum.Enum):
+    NOUVELLE = "nouvelle"
+    CONFIRMEE = "confirmee"
+    EN_PREPARATION = "en_preparation"
+    EXPEDIEE = "expediee"
+    LIVREE = "livree"
+    TERMINEE = "terminee"
+    ANNULEE = "annulee"
+    RETOURNEE = "retournee"
+    ECHOUEE = "echouee"
+
+
+class PaiementStatut(str, enum.Enum):
+    EN_ATTENTE = "en_attente"
+    INITIE = "initie"
+    PAYE = "paye"
+    ECHOUE = "echoue"
+
+
+class StockMovementType(str, enum.Enum):
+    VENTE = "vente"
+    REAPPRO = "reappro"
+    AJUSTEMENT = "ajustement"
+    ANNULATION = "annulation"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nom: Mapped[str] = mapped_column(String(120))
+    prenom: Mapped[str] = mapped_column(String(120))
+    telephone: Mapped[str] = mapped_column(String(30), unique=True, index=True)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.OWNER)
+    actif: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    shops: Mapped[list["Shop"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+
+
+class Shop(Base):
+    __tablename__ = "shops"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    nom: Mapped[str] = mapped_column(String(150))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    telephone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    whatsapp: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    adresse: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    commune: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    owner: Mapped["User"] = relationship(back_populates="shops")
+    categories: Mapped[list["Category"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+    products: Mapped[list["Product"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+    customers: Mapped[list["Customer"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+    orders: Mapped[list["Order"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    nom: Mapped[str] = mapped_column(String(120))
+
+    shop: Mapped["Shop"] = relationship(back_populates="categories")
+    products: Mapped[list["Product"]] = relationship(back_populates="category")
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
+    reference: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    nom: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prix_achat: Mapped[float] = mapped_column(Float, default=0)
+    prix_vente: Mapped[float] = mapped_column(Float, default=0)
+    stock: Mapped[int] = mapped_column(Integer, default=0)
+    seuil_alerte: Mapped[int] = mapped_column(Integer, default=5)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    actif: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    shop: Mapped["Shop"] = relationship(back_populates="products")
+    category: Mapped["Category | None"] = relationship(back_populates="products")
+    stock_movements: Mapped[list["StockMovement"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+
+
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    nom: Mapped[str] = mapped_column(String(150))
+    telephone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    adresse: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    commune: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    shop: Mapped["Shop"] = relationship(back_populates="customers")
+    orders: Mapped[list["Order"]] = relationship(back_populates="customer")
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    numero: Mapped[str] = mapped_column(String(30), unique=True, index=True)
+    reduction: Mapped[float] = mapped_column(Float, default=0)
+    frais_livraison: Mapped[float] = mapped_column(Float, default=0)
+    total: Mapped[float] = mapped_column(Float, default=0)
+    statut: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.NOUVELLE)
+    paiement_statut: Mapped[PaiementStatut] = mapped_column(Enum(PaiementStatut), default=PaiementStatut.EN_ATTENTE)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    shop: Mapped["Shop"] = relationship(back_populates="orders")
+    customer: Mapped["Customer"] = relationship(back_populates="orders")
+    items: Mapped[list["OrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+
+    @property
+    def customer_nom(self) -> str | None:
+        return self.customer.nom if self.customer else None
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    quantite: Mapped[int] = mapped_column(Integer)
+    prix_unitaire: Mapped[float] = mapped_column(Float)
+    prix_achat_unitaire: Mapped[float] = mapped_column(Float, default=0)
+
+    order: Mapped["Order"] = relationship(back_populates="items")
+    product: Mapped["Product"] = relationship()
+
+
+class StockMovement(Base):
+    __tablename__ = "stock_movements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    type: Mapped[StockMovementType] = mapped_column(Enum(StockMovementType))
+    quantite: Mapped[int] = mapped_column(Integer)
+    motif: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    product: Mapped["Product"] = relationship(back_populates="stock_movements")

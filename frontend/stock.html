@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("stock", "Stock", "Suivi des niveaux de stock et alertes");
+
+  const MOVEMENT_LABELS = {
+    vente: "Vente",
+    reappro: "Réapprovisionnement",
+    ajustement: "Ajustement",
+    annulation: "Retour / annulation",
+  };
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card" id="alertsCard" style="display:none">
+      <h2>⚠️ Produits en stock faible ou épuisés</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Produit</th><th>Stock</th><th>Seuil</th><th></th></tr></thead>
+          <tbody id="alertsBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Tous les produits</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Produit</th><th>Stock actuel</th><th>Seuil d'alerte</th><th></th></tr></thead>
+          <tbody id="productsBody"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="adjustBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeAdjust">&times;</button>
+        <h2 id="adjustTitle">Ajuster le stock</h2>
+        <form id="adjustForm">
+          <label for="a_qty">Quantité (positif pour ajouter, négatif pour retirer)</label>
+          <input type="number" id="a_qty" required>
+          <label for="a_motif">Motif (optionnel)</label>
+          <input type="text" id="a_motif" placeholder="Ex: réapprovisionnement fournisseur">
+          <div class="form-actions">
+            <button type="submit" class="btn">Valider</button>
+          </div>
+        </form>
+        <h2 style="margin-top:22px">Historique des mouvements</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Type</th><th>Quantité</th><th>Motif</th></tr></thead>
+            <tbody id="movementsBody"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `);
+
+  let products = [];
+  let currentProductId = null;
+
+  function renderTables() {
+    const alerts = products.filter((p) => p.stock <= p.seuil_alerte);
+    document.getElementById("alertsCard").style.display = alerts.length ? "block" : "none";
+    document.getElementById("alertsBody").innerHTML = alerts.map((p) => `
+      <tr>
+        <td>${p.nom}</td>
+        <td>${p.stock === 0 ? `<span class="badge red">Épuisé</span>` : `<span class="badge amber">${p.stock}</span>`}</td>
+        <td>${p.seuil_alerte}</td>
+        <td><button class="btn small" data-adjust="${p.id}">Ajuster</button></td>
+      </tr>
+    `).join("");
+
+    const body = document.getElementById("productsBody");
+    if (products.length === 0) {
+      body.innerHTML = `<tr><td colspan="4" class="empty">Aucun produit</td></tr>`;
+    } else {
+      body.innerHTML = products.map((p) => `
+        <tr>
+          <td>${p.nom}</td>
+          <td>${p.stock}</td>
+          <td>${p.seuil_alerte}</td>
+          <td><button class="btn secondary small" data-adjust="${p.id}">Ajuster</button></td>
+        </tr>
+      `).join("");
+    }
+
+    document.querySelectorAll("[data-adjust]").forEach((btn) => {
+      btn.addEventListener("click", () => openAdjustModal(Number(btn.dataset.adjust)));
+    });
+  }
+
+  async function openAdjustModal(productId) {
+    currentProductId = productId;
+    const product = products.find((p) => p.id === productId);
+    document.getElementById("adjustTitle").textContent = `Ajuster le stock — ${product.nom} (actuel : ${product.stock})`;
+    document.getElementById("adjustForm").reset();
+    document.getElementById("adjustBackdrop").classList.remove("hidden");
+    document.getElementById("movementsBody").innerHTML = `<tr><td colspan="4" class="empty">Chargement…</td></tr>`;
+    try {
+      const movements = await api(`/api/stock/${productId}/mouvements`);
+      const body = document.getElementById("movementsBody");
+      body.innerHTML = movements.length === 0
+        ? `<tr><td colspan="4" class="empty">Aucun mouvement</td></tr>`
+        : movements.map((m) => `
+            <tr>
+              <td>${fmtDate(m.created_at)}</td>
+              <td>${MOVEMENT_LABELS[m.type] || m.type}</td>
+              <td>${m.quantite > 0 ? "+" : ""}${m.quantite}</td>
+              <td>${m.motif || "-"}</td>
+            </tr>
+          `).join("");
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  document.getElementById("closeAdjust").addEventListener("click", () =>
+    document.getElementById("adjustBackdrop").classList.add("hidden"));
+
+  document.getElementById("adjustForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+      quantite: Number(document.getElementById("a_qty").value),
+      motif: document.getElementById("a_motif").value.trim() || null,
+    };
+    try {
+      await api(`/api/stock/${currentProductId}/ajuster`, { method: "POST", body: payload });
+      document.getElementById("adjustBackdrop").classList.add("hidden");
+      await loadProducts();
+      toast("Stock ajusté", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  async function loadProducts() {
+    products = await api("/api/produits");
+    renderTables();
+  }
+
+  loadProducts().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

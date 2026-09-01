@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commandes — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("commandes", "Commandes", "Suivez vos ventes du début à la fin");
+
+  document.getElementById("topbarActions").innerHTML = `<button class="btn" id="newOrderBtn">+ Nouvelle commande</button>`;
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <div class="toolbar">
+        <select id="statusFilter">
+          <option value="">Tous les statuts</option>
+          ${Object.entries(ORDER_STATUS_LABELS).map(([k, [label]]) => `<option value="${k}">${label}</option>`).join("")}
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>N°</th><th>Client</th><th>Articles</th><th>Total</th><th>Statut</th><th>Paiement</th><th>Date</th><th></th></tr></thead>
+          <tbody id="ordersBody"><tr><td colspan="8" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="newOrderBackdrop">
+      <div class="modal" style="max-width:560px">
+        <button class="modal-close" id="closeNewOrder">&times;</button>
+        <h2>Nouvelle commande</h2>
+        <form id="newOrderForm">
+          <label for="o_customer">Client</label>
+          <select id="o_customer">
+            <option value="">+ Nouveau client…</option>
+          </select>
+
+          <div id="newCustomerFields">
+            <div class="field-row">
+              <div><label for="o_new_nom">Nom du client</label><input type="text" id="o_new_nom"></div>
+              <div><label for="o_new_tel">Téléphone</label><input type="tel" id="o_new_tel"></div>
+            </div>
+            <label for="o_new_commune">Commune</label>
+            <input type="text" id="o_new_commune">
+          </div>
+
+          <label>Produits</label>
+          <div id="orderItems"></div>
+          <button type="button" class="btn secondary small" id="addItemBtn" style="margin-top:6px">+ Ajouter un produit</button>
+
+          <div class="field-row" style="margin-top:14px">
+            <div><label for="o_reduction">Réduction (FCFA)</label><input type="number" id="o_reduction" min="0" value="0"></div>
+            <div><label for="o_livraison">Frais de livraison (FCFA)</label><input type="number" id="o_livraison" min="0" value="0"></div>
+          </div>
+
+          <label for="o_notes">Notes (optionnel)</label>
+          <textarea id="o_notes" rows="2"></textarea>
+
+          <div style="margin-top:14px;font-weight:700;font-size:16px">Total estimé : <span id="orderTotalPreview">0 FCFA</span></div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn">Créer la commande</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="orderDetailBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeOrderDetail">&times;</button>
+        <h2 id="detailTitle">Commande</h2>
+        <div id="detailBody"></div>
+      </div>
+    </div>
+  `);
+
+  let customers = [];
+  let products = [];
+  let orders = [];
+  let itemRowCount = 0;
+
+  function addItemRow(productId, quantite) {
+    itemRowCount += 1;
+    const rowId = `item_${itemRowCount}`;
+    const options = products.map((p) => `<option value="${p.id}">${p.nom} — ${fmtFCFA(p.prix_vente)} (stock ${p.stock})</option>`).join("");
+    const div = document.createElement("div");
+    div.className = "field-row";
+    div.style.marginTop = "6px";
+    div.id = rowId;
+    div.innerHTML = `
+      <div style="flex:2"><select class="item-product">${options}</select></div>
+      <div style="display:flex;gap:6px">
+        <input type="number" class="item-qty" min="1" value="${quantite || 1}" style="width:80px">
+        <button type="button" class="btn danger small" data-remove-row="${rowId}">✕</button>
+      </div>
+    `;
+    document.getElementById("orderItems").appendChild(div);
+    if (productId) div.querySelector(".item-product").value = productId;
+    div.querySelector(".item-product").addEventListener("change", updateTotalPreview);
+    div.querySelector(".item-qty").addEventListener("input", updateTotalPreview);
+    div.querySelector("[data-remove-row]").addEventListener("click", () => {
+      div.remove();
+      updateTotalPreview();
+    });
+    updateTotalPreview();
+  }
+
+  function updateTotalPreview() {
+    let subtotal = 0;
+    document.querySelectorAll("#orderItems > div").forEach((row) => {
+      const productId = Number(row.querySelector(".item-product").value);
+      const qty = Number(row.querySelector(".item-qty").value) || 0;
+      const product = products.find((p) => p.id === productId);
+      if (product) subtotal += product.prix_vente * qty;
+    });
+    const reduction = Number(document.getElementById("o_reduction").value) || 0;
+    const livraison = Number(document.getElementById("o_livraison").value) || 0;
+    const total = Math.max(subtotal - reduction, 0) + livraison;
+    document.getElementById("orderTotalPreview").textContent = fmtFCFA(total);
+  }
+
+  function openNewOrderModal() {
+    document.getElementById("newOrderForm").reset();
+    document.getElementById("orderItems").innerHTML = "";
+    itemRowCount = 0;
+    addItemRow();
+    document.getElementById("o_customer").innerHTML =
+      `<option value="">+ Nouveau client…</option>` +
+      customers.map((c) => `<option value="${c.id}">${c.nom}${c.telephone ? " — " + c.telephone : ""}</option>`).join("");
+    toggleNewCustomerFields();
+    document.getElementById("newOrderBackdrop").classList.remove("hidden");
+  }
+
+  function toggleNewCustomerFields() {
+    const isNew = document.getElementById("o_customer").value === "";
+    document.getElementById("newCustomerFields").style.display = isNew ? "block" : "none";
+  }
+
+  document.getElementById("newOrderBtn").addEventListener("click", openNewOrderModal);
+  document.getElementById("closeNewOrder").addEventListener("click", () =>
+    document.getElementById("newOrderBackdrop").classList.add("hidden"));
+  document.getElementById("addItemBtn").addEventListener("click", () => addItemRow());
+  document.getElementById("o_customer").addEventListener("change", toggleNewCustomerFields);
+  document.getElementById("o_reduction").addEventListener("input", updateTotalPreview);
+  document.getElementById("o_livraison").addEventListener("input", updateTotalPreview);
+
+  document.getElementById("newOrderForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const items = [];
+    document.querySelectorAll("#orderItems > div").forEach((row) => {
+      const product_id = Number(row.querySelector(".item-product").value);
+      const quantite = Number(row.querySelector(".item-qty").value);
+      if (product_id && quantite > 0) items.push({ product_id, quantite });
+    });
+    if (items.length === 0) { toast("Ajoutez au moins un produit", "error"); return; }
+
+    const payload = {
+      items,
+      reduction: Number(document.getElementById("o_reduction").value) || 0,
+      frais_livraison: Number(document.getElementById("o_livraison").value) || 0,
+      notes: document.getElementById("o_notes").value.trim() || null,
+    };
+
+    const customerId = document.getElementById("o_customer").value;
+    if (customerId) {
+      payload.customer_id = Number(customerId);
+    } else {
+      const nom = document.getElementById("o_new_nom").value.trim();
+      if (!nom) { toast("Le nom du nouveau client est requis", "error"); return; }
+      payload.nouveau_client = {
+        nom,
+        telephone: document.getElementById("o_new_tel").value.trim() || null,
+        commune: document.getElementById("o_new_commune").value.trim() || null,
+      };
+    }
+
+    try {
+      await api("/api/commandes", { method: "POST", body: payload });
+      document.getElementById("newOrderBackdrop").classList.add("hidden");
+      await Promise.all([loadOrders(), loadProducts(), loadCustomers()]);
+      toast("Commande créée", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  function renderOrders() {
+    const statusFilter = document.getElementById("statusFilter").value;
+    const rows = statusFilter ? orders.filter((o) => o.statut === statusFilter) : orders;
+    const body = document.getElementById("ordersBody");
+    if (rows.length === 0) {
+      body.innerHTML = `<tr><td colspan="8" class="empty">Aucune commande</td></tr>`;
+      return;
+    }
+    body.innerHTML = rows.map((o) => `
+      <tr>
+        <td>${o.numero}</td>
+        <td>${o.customer_nom || "#" + o.customer_id}</td>
+        <td>${o.items.reduce((s, i) => s + i.quantite, 0)}</td>
+        <td>${fmtFCFA(o.total)}</td>
+        <td>${badge(ORDER_STATUS_LABELS, o.statut)}</td>
+        <td>${badge(PAIEMENT_STATUS_LABELS, o.paiement_statut)}</td>
+        <td>${fmtDate(o.created_at)}</td>
+        <td><button class="btn secondary small" data-detail="${o.id}">Détails</button></td>
+      </tr>
+    `).join("");
+
+    body.querySelectorAll("[data-detail]").forEach((btn) => {
+      btn.addEventListener("click", () => openDetail(orders.find((o) => o.id === Number(btn.dataset.detail))));
+    });
+  }
+
+  function productName(id) {
+    const p = products.find((p) => p.id === id);
+    return p ? p.nom : `Produit #${id}`;
+  }
+
+  function openDetail(order) {
+    document.getElementById("detailTitle").textContent = `Commande ${order.numero}`;
+    const nextStatuses = ORDER_STATUS_TRANSITIONS[order.statut] || [];
+    const itemsHtml = order.items.map((i) => `
+      <tr><td>${productName(i.product_id)}</td><td>${i.quantite}</td><td>${fmtFCFA(i.prix_unitaire)}</td><td>${fmtFCFA(i.prix_unitaire * i.quantite)}</td></tr>
+    `).join("");
+
+    document.getElementById("detailBody").innerHTML = `
+      <p><strong>Client :</strong> ${order.customer_nom || "#" + order.customer_id}</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Produit</th><th>Qté</th><th>P.U.</th><th>Sous-total</th></tr></thead>
+          <tbody>${itemsHtml}</tbody>
+        </table>
+      </div>
+      <p style="margin-top:10px">
+        Réduction : ${fmtFCFA(order.reduction)} — Livraison : ${fmtFCFA(order.frais_livraison)}<br>
+        <strong>Total : ${fmtFCFA(order.total)}</strong>
+      </p>
+      ${order.notes ? `<p><strong>Notes :</strong> ${order.notes}</p>` : ""}
+
+      <label for="detailStatus">Statut de la commande</label>
+      <select id="detailStatus" ${nextStatuses.length === 0 ? "disabled" : ""}>
+        <option value="${order.statut}">${ORDER_STATUS_LABELS[order.statut][0]} (actuel)</option>
+        ${nextStatuses.map((s) => `<option value="${s}">${ORDER_STATUS_LABELS[s][0]}</option>`).join("")}
+      </select>
+
+      <label for="detailPaiement">Statut du paiement</label>
+      <select id="detailPaiement">
+        ${Object.entries(PAIEMENT_STATUS_LABELS).map(([k, [label]]) =>
+          `<option value="${k}" ${k === order.paiement_statut ? "selected" : ""}>${label}</option>`).join("")}
+      </select>
+
+      <div class="form-actions">
+        <button class="btn" id="saveDetailBtn">Mettre à jour</button>
+      </div>
+    `;
+
+    document.getElementById("saveDetailBtn").addEventListener("click", async () => {
+      const newStatus = document.getElementById("detailStatus").value;
+      const newPaiement = document.getElementById("detailPaiement").value;
+      try {
+        if (newStatus !== order.statut) {
+          await api(`/api/commandes/${order.id}/statut`, { method: "PATCH", body: { statut: newStatus } });
+        }
+        if (newPaiement !== order.paiement_statut) {
+          await api(`/api/commandes/${order.id}/paiement`, { method: "PATCH", body: { paiement_statut: newPaiement } });
+        }
+        document.getElementById("orderDetailBackdrop").classList.add("hidden");
+        await Promise.all([loadOrders(), loadProducts()]);
+        toast("Commande mise à jour", "success");
+      } catch (err) { toast(err.message, "error"); }
+    });
+
+    document.getElementById("orderDetailBackdrop").classList.remove("hidden");
+  }
+
+  document.getElementById("closeOrderDetail").addEventListener("click", () =>
+    document.getElementById("orderDetailBackdrop").classList.add("hidden"));
+  document.getElementById("statusFilter").addEventListener("change", renderOrders);
+
+  async function loadOrders() {
+    orders = await api("/api/commandes");
+    renderOrders();
+  }
+  async function loadProducts() {
+    products = await api("/api/produits");
+  }
+  async function loadCustomers() {
+    customers = await api("/api/clients");
+  }
+
+  (async () => {
+    try {
+      await Promise.all([loadProducts(), loadCustomers()]);
+      await loadOrders();
+    } catch (err) { toast(err.message, "error"); }
+  })();
+</script>
+</body>
+</html>

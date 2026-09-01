@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Créer un compte — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="brand">Mobi<span>Biz</span></div>
+    <p class="tagline">Créez votre boutique en 1 minute</p>
+
+    <form id="registerForm">
+      <div class="field-row">
+        <div>
+          <label for="prenom">Prénom</label>
+          <input type="text" id="prenom" required>
+        </div>
+        <div>
+          <label for="nom">Nom</label>
+          <input type="text" id="nom" required>
+        </div>
+      </div>
+
+      <label for="telephone">Numéro de téléphone</label>
+      <input type="tel" id="telephone" required placeholder="07 00 00 00 01">
+
+      <label for="email">Email (optionnel)</label>
+      <input type="email" id="email" placeholder="vous@exemple.com">
+
+      <label for="boutique_nom">Nom de votre boutique</label>
+      <input type="text" id="boutique_nom" required placeholder="Ex: Boutique Yasmine">
+
+      <label for="password">Mot de passe</label>
+      <input type="password" id="password" required minlength="6" placeholder="6 caractères minimum">
+
+      <div class="error-msg" id="errorMsg"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn" style="width:100%" id="submitBtn">Créer mon compte</button>
+      </div>
+    </form>
+
+    <div class="switch-link">
+      Déjà un compte ? <a href="index.html">Se connecter</a>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/api.js"></script>
+<script>
+  if (Auth.getToken()) window.location.href = "dashboard.html";
+
+  document.getElementById("registerForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorMsg = document.getElementById("errorMsg");
+    const submitBtn = document.getElementById("submitBtn");
+    errorMsg.style.display = "none";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Création…";
+
+    try {
+      const data = await api("/api/auth/register", {
+        method: "POST",
+        body: {
+          prenom: document.getElementById("prenom").value.trim(),
+          nom: document.getElementById("nom").value.trim(),
+          telephone: document.getElementById("telephone").value.trim(),
+          email: document.getElementById("email").value.trim() || null,
+          boutique_nom: document.getElementById("boutique_nom").value.trim(),
+          password: document.getElementById("password").value,
+        },
+      });
+      Auth.setToken(data.access_token);
+      window.location.href = "dashboard.html";
+    } catch (err) {
+      errorMsg.textContent = err.message;
+      errorMsg.style.display = "block";
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Créer mon compte";
+    }
+  });
+</script>
+</body>
+</html>

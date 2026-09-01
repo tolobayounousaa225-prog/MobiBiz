@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produits — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("produits", "Produits", "Gérez votre catalogue");
+
+  document.getElementById("topbarActions").innerHTML = `<button class="btn" id="newProductBtn">+ Nouveau produit</button>`;
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <div class="toolbar">
+        <input type="search" id="searchInput" placeholder="Rechercher un produit…">
+        <select id="categoryFilter"><option value="">Toutes les catégories</option></select>
+        <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:400;color:var(--ink-soft)">
+          <input type="checkbox" id="lowStockFilter" style="width:auto"> Stock faible uniquement
+        </label>
+        <div class="spacer"></div>
+        <button class="btn secondary small" id="manageCategoriesBtn">Catégories</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Produit</th><th>Catégorie</th><th>Prix d'achat</th><th>Prix de vente</th><th>Stock</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="productsBody"><tr><td colspan="7" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="productModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeProductModal">&times;</button>
+        <h2 id="productModalTitle">Nouveau produit</h2>
+        <form id="productForm">
+          <input type="hidden" id="productId">
+          <label for="p_nom">Nom du produit</label>
+          <input type="text" id="p_nom" required>
+
+          <label for="p_reference">Référence (optionnel)</label>
+          <input type="text" id="p_reference">
+
+          <label for="p_category">Catégorie</label>
+          <select id="p_category"><option value="">Aucune</option></select>
+
+          <div class="field-row">
+            <div>
+              <label for="p_prix_achat">Prix d'achat (FCFA)</label>
+              <input type="number" id="p_prix_achat" min="0" step="1" required>
+            </div>
+            <div>
+              <label for="p_prix_vente">Prix de vente (FCFA)</label>
+              <input type="number" id="p_prix_vente" min="0" step="1" required>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div>
+              <label for="p_stock">Stock initial</label>
+              <input type="number" id="p_stock" min="0" step="1" required>
+            </div>
+            <div>
+              <label for="p_seuil">Seuil d'alerte</label>
+              <input type="number" id="p_seuil" min="0" step="1" value="5" required>
+            </div>
+          </div>
+
+          <label for="p_description">Description (optionnel)</label>
+          <textarea id="p_description" rows="2"></textarea>
+
+          <div class="form-actions">
+            <button type="submit" class="btn">Enregistrer</button>
+            <button type="button" class="btn danger hidden" id="deleteProductBtn">Supprimer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="categoryModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeCategoryModal">&times;</button>
+        <h2>Catégories</h2>
+        <form id="categoryForm" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:14px">
+          <div style="flex:1"><label for="c_nom" style="margin-top:0">Nouvelle catégorie</label><input type="text" id="c_nom" required></div>
+          <button type="submit" class="btn">Ajouter</button>
+        </form>
+        <div id="categoryList"></div>
+      </div>
+    </div>
+  `);
+
+  let categories = [];
+  let products = [];
+
+  async function loadCategories() {
+    categories = await api("/api/categories");
+    const options = categories.map((c) => `<option value="${c.id}">${c.nom}</option>`).join("");
+    document.getElementById("categoryFilter").innerHTML = `<option value="">Toutes les catégories</option>${options}`;
+    document.getElementById("p_category").innerHTML = `<option value="">Aucune</option>${options}`;
+    renderCategoryList();
+  }
+
+  function renderCategoryList() {
+    const list = document.getElementById("categoryList");
+    if (categories.length === 0) {
+      list.innerHTML = `<p class="empty">Aucune catégorie</p>`;
+      return;
+    }
+    list.innerHTML = categories.map((c) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span>${c.nom}</span>
+        <button class="btn danger small" data-del-cat="${c.id}">Supprimer</button>
+      </div>
+    `).join("");
+    list.querySelectorAll("[data-del-cat]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Supprimer cette catégorie ?")) return;
+        try {
+          await api(`/api/categories/${btn.dataset.delCat}`, { method: "DELETE" });
+          await loadCategories();
+          await loadProducts();
+          toast("Catégorie supprimée", "success");
+        } catch (err) { toast(err.message, "error"); }
+      });
+    });
+  }
+
+  function categoryName(id) {
+    const c = categories.find((c) => c.id === id);
+    return c ? c.nom : "-";
+  }
+
+  function renderProducts() {
+    const q = document.getElementById("searchInput").value.toLowerCase();
+    const catId = document.getElementById("categoryFilter").value;
+    const lowOnly = document.getElementById("lowStockFilter").checked;
+
+    let rows = products.filter((p) => p.nom.toLowerCase().includes(q));
+    if (catId) rows = rows.filter((p) => String(p.category_id || "") === catId);
+    if (lowOnly) rows = rows.filter((p) => p.stock <= p.seuil_alerte);
+
+    const body = document.getElementById("productsBody");
+    if (rows.length === 0) {
+      body.innerHTML = `<tr><td colspan="7" class="empty">Aucun produit trouvé</td></tr>`;
+      return;
+    }
+    body.innerHTML = rows.map((p) => {
+      const stockBadge = p.stock === 0
+        ? `<span class="badge red">Épuisé</span>`
+        : (p.stock <= p.seuil_alerte ? `<span class="badge amber">Stock faible (${p.stock})</span>` : `${p.stock}`);
+      return `
+        <tr>
+          <td>${p.nom}${p.reference ? ` <span style="color:var(--ink-soft)">(${p.reference})</span>` : ""}</td>
+          <td>${p.category_id ? categoryName(p.category_id) : "-"}</td>
+          <td>${fmtFCFA(p.prix_achat)}</td>
+          <td>${fmtFCFA(p.prix_vente)}</td>
+          <td>${stockBadge}</td>
+          <td>${p.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Inactif</span>`}</td>
+          <td><button class="btn secondary small" data-edit="${p.id}">Modifier</button></td>
+        </tr>
+      `;
+    }).join("");
+
+    body.querySelectorAll("[data-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => openProductModal(products.find((p) => p.id === Number(btn.dataset.edit))));
+    });
+  }
+
+  async function loadProducts() {
+    products = await api("/api/produits");
+    renderProducts();
+  }
+
+  function openProductModal(product) {
+    document.getElementById("productModalTitle").textContent = product ? "Modifier le produit" : "Nouveau produit";
+    document.getElementById("productId").value = product ? product.id : "";
+    document.getElementById("p_nom").value = product ? product.nom : "";
+    document.getElementById("p_reference").value = product ? (product.reference || "") : "";
+    document.getElementById("p_category").value = product ? (product.category_id || "") : "";
+    document.getElementById("p_prix_achat").value = product ? product.prix_achat : 0;
+    document.getElementById("p_prix_vente").value = product ? product.prix_vente : 0;
+    document.getElementById("p_stock").value = product ? product.stock : 0;
+    document.getElementById("p_seuil").value = product ? product.seuil_alerte : 5;
+    document.getElementById("p_description").value = product ? (product.description || "") : "";
+    document.getElementById("deleteProductBtn").classList.toggle("hidden", !product);
+    document.getElementById("productModalBackdrop").classList.remove("hidden");
+  }
+
+  document.getElementById("newProductBtn").addEventListener("click", () => openProductModal(null));
+  document.getElementById("closeProductModal").addEventListener("click", () =>
+    document.getElementById("productModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("productForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = document.getElementById("productId").value;
+    const payload = {
+      nom: document.getElementById("p_nom").value.trim(),
+      reference: document.getElementById("p_reference").value.trim() || null,
+      category_id: document.getElementById("p_category").value ? Number(document.getElementById("p_category").value) : null,
+      prix_achat: Number(document.getElementById("p_prix_achat").value),
+      prix_vente: Number(document.getElementById("p_prix_vente").value),
+      stock: Number(document.getElementById("p_stock").value),
+      seuil_alerte: Number(document.getElementById("p_seuil").value),
+      description: document.getElementById("p_description").value.trim() || null,
+      actif: true,
+    };
+    try {
+      if (id) {
+        await api(`/api/produits/${id}`, { method: "PUT", body: payload });
+      } else {
+        await api("/api/produits", { method: "POST", body: payload });
+      }
+      document.getElementById("productModalBackdrop").classList.add("hidden");
+      await loadProducts();
+      toast("Produit enregistré", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("deleteProductBtn").addEventListener("click", async () => {
+    const id = document.getElementById("productId").value;
+    if (!confirm("Supprimer ce produit ?")) return;
+    try {
+      await api(`/api/produits/${id}`, { method: "DELETE" });
+      document.getElementById("productModalBackdrop").classList.add("hidden");
+      await loadProducts();
+      toast("Produit supprimé", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("manageCategoriesBtn").addEventListener("click", () =>
+    document.getElementById("categoryModalBackdrop").classList.remove("hidden"));
+  document.getElementById("closeCategoryModal").addEventListener("click", () =>
+    document.getElementById("categoryModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("categoryForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("c_nom");
+    try {
+      await api("/api/categories", { method: "POST", body: { nom: input.value.trim() } });
+      input.value = "";
+      await loadCategories();
+      toast("Catégorie ajoutée", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("searchInput").addEventListener("input", renderProducts);
+  document.getElementById("categoryFilter").addEventListener("change", renderProducts);
+  document.getElementById("lowStockFilter").addEventListener("change", renderProducts);
+
+  (async () => {
+    try {
+      await loadCategories();
+      await loadProducts();
+    } catch (err) { toast(err.message, "error"); }
+  })();
+</script>
+</body>
+</html>

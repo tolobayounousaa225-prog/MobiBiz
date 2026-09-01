@@ -1,0 +1,8 @@
+# À installer en plus de requirements.txt uniquement en production (déploiement
+# avec DATABASE_URL Postgres). Pas de wheel précompilé psycopg2-binary pour
+# Python 3.14 au moment de la création de ce projet : sur cette machine de dev,
+# psycopg2 n'est de toute façon pas utilisable localement (bloqué par Windows
+# Smart App Control) — voir la mémoire "lecim_local_backend_blocked". Le dev
+# local tourne donc en SQLite (DATABASE_URL vide) sans jamais importer psycopg2.
+-r requirements.txt
+psycopg2-binary==2.9.9

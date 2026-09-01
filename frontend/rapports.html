@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rapports — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("rapports", "Rapports", "Exportez vos données au format CSV");
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <h2>Rapport des ventes</h2>
+      <p style="color:var(--ink-soft);margin-top:0">Liste détaillée de toutes les commandes, ligne par produit.</p>
+      <button class="btn" data-export="ventes.csv">Télécharger le CSV</button>
+    </div>
+    <div class="card">
+      <h2>Rapport du stock</h2>
+      <p style="color:var(--ink-soft);margin-top:0">État du catalogue et des niveaux de stock.</p>
+      <button class="btn" data-export="produits.csv">Télécharger le CSV</button>
+    </div>
+    <div class="card">
+      <h2>Rapport clients</h2>
+      <p style="color:var(--ink-soft);margin-top:0">Fichier client complet.</p>
+      <button class="btn" data-export="clients.csv">Télécharger le CSV</button>
+    </div>
+  `;
+
+  content.querySelectorAll("[data-export]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = "Génération…";
+      try {
+        const blob = await api(`/api/rapports/${btn.dataset.export}`, { isBlob: true });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = btn.dataset.export;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        toast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  });
+</script>
+</body>
+</html>

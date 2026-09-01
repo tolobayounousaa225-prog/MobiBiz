@@ -20,6 +20,17 @@ Implémenté et testé de bout en bout :
 - Rapports simples (export CSV ventes / produits / clients, protégé contre l'injection
   de formule CSV)
 
+## V2 en cours
+
+- **Paiement Wave (QR code)** ✅ — le commerçant enregistre son lien de paiement Wave
+  Business (page « Ma boutique »), un QR code est généré côté serveur et affichable
+  depuis la boutique et depuis chaque commande (avec le montant à encaisser). Pas
+  d'API paiement (Wave n'en expose pas à un petit marchand) : confirmation du paiement
+  reçu toujours manuelle. A fait introduire `app/migrations.py` (migrations idempotentes
+  au démarrage, même mécanisme que LECIM) — nécessaire pour faire évoluer le schéma
+  d'une table déjà créée en production ; `Base.metadata.create_all()` seul ne suffit
+  plus, tout futur ajout de colonne doit passer par ce fichier.
+
 **Non implémenté volontairement** (prévu aux versions suivantes du cahier des charges,
 section 30 et suivantes) : paiements en ligne, notifications, employés/rôles, dépenses,
 import Excel, boutique publique (V2) ; livraison, intégrations WhatsApp, marketing,

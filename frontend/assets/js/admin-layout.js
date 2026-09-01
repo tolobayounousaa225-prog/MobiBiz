@@ -2,6 +2,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "admin-dashboard.html", label: "Tableau de bord", key: "admin-dashboard" },
   { href: "admin-boutiques.html", label: "Boutiques", key: "admin-boutiques" },
   { href: "admin-utilisateurs.html", label: "Utilisateurs", key: "admin-utilisateurs" },
+  { href: "admin-parametres.html", label: "Paramètres", key: "admin-parametres" },
 ];
 
 function renderAdminLayout(activeKey, pageTitle, pageSub) {

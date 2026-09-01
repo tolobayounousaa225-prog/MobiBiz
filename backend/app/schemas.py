@@ -1,3 +1,4 @@
+from datetime import date as date_type
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -103,6 +104,7 @@ class ShopOut(ShopIn):
     slug: str
     abonnement_statut: SubscriptionStatus
     abonnement_plan: SubscriptionPlan
+    prochain_paiement_le: date_type | None = None
     created_at: datetime
 
 
@@ -354,6 +356,7 @@ class AdminShopOut(BaseModel):
     slug: str
     abonnement_statut: SubscriptionStatus
     abonnement_plan: SubscriptionPlan
+    prochain_paiement_le: str | None = None
     proprietaire_nom: str
     proprietaire_telephone: str
     nombre_produits: int
@@ -378,6 +381,27 @@ class AdminStatsOut(BaseModel):
     utilisateurs_total: int
     commandes_total: int
     chiffre_affaires_total: float
+
+
+class SubscriptionPaymentIn(BaseModel):
+    montant: float = Field(gt=0)
+    date_paiement: str  # ISO yyyy-mm-dd
+
+
+class SubscriptionPaymentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    montant: float
+    date_paiement: date_type
+    created_at: datetime
+
+
+class PlatformSettingsIn(BaseModel):
+    wave_payment_link: str | None = None
+
+
+class PlatformSettingsOut(BaseModel):
+    wave_payment_link: str | None = None
 
 
 class AdminUserOut(BaseModel):

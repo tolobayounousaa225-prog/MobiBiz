@@ -25,6 +25,15 @@
       <div class="kpi"><div class="label">CA total plateforme</div><div class="value orange">—</div></div>
     </div>
     <div class="card">
+      <h2>Paiements à échéance (5 prochains jours ou en retard)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Boutique</th><th>Propriétaire</th><th>Statut</th><th>Échéance</th><th></th></tr></thead>
+          <tbody id="dueBody"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
       <h2>Boutiques suspendues</h2>
       <div class="table-wrap">
         <table>
@@ -35,6 +44,12 @@
       <a href="admin-boutiques.html" class="btn small secondary" style="margin-top:10px;display:inline-flex">Voir toutes les boutiques</a>
     </div>
   `;
+
+  const STATUS_LABELS = {
+    essai: ["Essai", "amber"],
+    actif: ["Actif", "green"],
+    suspendu: ["Suspendu", "red"],
+  };
 
   const PLAN_LABELS = { free: "Free", starter: "Starter", pro: "Pro", business: "Business", enterprise: "Enterprise" };
 
@@ -52,6 +67,24 @@
     values[4].textContent = stats.utilisateurs_total;
     values[5].textContent = stats.commandes_total;
     values[6].textContent = fmtFCFA(stats.chiffre_affaires_total);
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const due = shops.filter((s) => {
+      if (!s.prochain_paiement_le || s.abonnement_statut === "suspendu") return false;
+      const diffDays = Math.round((new Date(s.prochain_paiement_le + "T00:00:00") - today) / 86400000);
+      return diffDays <= 5;
+    });
+    document.getElementById("dueBody").innerHTML = due.length === 0
+      ? `<tr><td colspan="5" class="empty">Aucune échéance proche</td></tr>`
+      : due.map((s) => `
+          <tr>
+            <td>${s.nom}</td>
+            <td>${s.proprietaire_nom} — ${s.proprietaire_telephone}</td>
+            <td>${badge(STATUS_LABELS, s.abonnement_statut)}</td>
+            <td>${paymentDueBadge(s.prochain_paiement_le)}</td>
+            <td><a href="admin-boutiques.html" class="btn secondary small">Gérer</a></td>
+          </tr>
+        `).join("");
 
     const suspended = shops.filter((s) => s.abonnement_statut === "suspendu");
     const body = document.getElementById("suspendedBody");

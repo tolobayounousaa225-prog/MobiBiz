@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paramètres — Administration MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/admin-layout.js"></script>
+<script>
+  renderAdminLayout("admin-parametres", "Paramètres", "Configuration de la plateforme");
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card" style="max-width:480px">
+      <h2>Paiement des abonnements</h2>
+      <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0">
+        Lien de paiement Wave Business vers lequel les boutiques paient leur
+        abonnement MobiBiz. Récupérable dans l'app Wave Business → Paramètres →
+        Lien de paiement.
+      </p>
+      <form id="settingsForm">
+        <label for="wave_link">Lien de paiement Wave</label>
+        <input type="url" id="wave_link" placeholder="https://pay.wave.com/m/...">
+        <div class="form-actions">
+          <button type="submit" class="btn">Enregistrer</button>
+        </div>
+      </form>
+      <div id="qrPreview" style="margin-top:16px"></div>
+    </div>
+  `;
+
+  async function loadQr() {
+    const box = document.getElementById("qrPreview");
+    try {
+      const blob = await api("/api/abonnement/wave-qr.png", { isBlob: true });
+      const url = URL.createObjectURL(blob);
+      box.innerHTML = `<img src="${url}" alt="QR paiement abonnement" style="width:180px;height:180px;border:1px solid var(--border);border-radius:8px;padding:8px;background:#fff">`;
+    } catch (_) {
+      box.innerHTML = "";
+    }
+  }
+
+  async function load() {
+    const settings = await api("/api/admin/parametres");
+    document.getElementById("wave_link").value = settings.wave_payment_link || "";
+    await loadQr();
+  }
+
+  document.getElementById("settingsForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/admin/parametres", {
+        method: "PUT",
+        body: { wave_payment_link: document.getElementById("wave_link").value.trim() || null },
+      });
+      toast("Paramètres enregistrés", "success");
+      await loadQr();
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  load().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

@@ -115,6 +115,19 @@ function badge(labelMap, key) {
   return `<span class="badge ${color}">${label}</span>`;
 }
 
+// Badge coloré pour une échéance de paiement d'abonnement (rouge = en retard,
+// orange = dans les 5 jours, gris = plus loin). Partagé entre les pages admin.
+function paymentDueBadge(dateStr) {
+  if (!dateStr) return `<span style="color:var(--ink-soft)">—</span>`;
+  const due = new Date(dateStr + "T00:00:00");
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due - today) / 86400000);
+  const label = fmtDate(dateStr);
+  if (diffDays < 0) return `<span class="badge red">${label} (en retard)</span>`;
+  if (diffDays <= 5) return `<span class="badge amber">${label}</span>`;
+  return `<span class="badge gray">${label}</span>`;
+}
+
 const DELIVERY_MODE_LABELS = {
   interne: "Livraison interne",
   partenaire: "Livreur partenaire",

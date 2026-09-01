@@ -186,6 +186,7 @@ class Shop(Base):
     boutique_publique_active: Mapped[bool] = mapped_column(Boolean, default=False)
     abonnement_statut: Mapped[SubscriptionStatus] = mapped_column(Enum(SubscriptionStatus), default=SubscriptionStatus.ACTIF)
     abonnement_plan: Mapped[SubscriptionPlan] = mapped_column(Enum(SubscriptionPlan), default=SubscriptionPlan.FREE)
+    prochain_paiement_le: Mapped[date_type | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     owner: Mapped["User"] = relationship(back_populates="shops", foreign_keys=[owner_id])
@@ -195,6 +196,7 @@ class Shop(Base):
     orders: Mapped[list["Order"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     expenses: Mapped[list["Expense"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     notifications: Mapped[list["Notification"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+    abonnement_paiements: Mapped[list["SubscriptionPayment"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
 
 
 class Category(Base):
@@ -345,3 +347,30 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     shop: Mapped["Shop"] = relationship(back_populates="notifications")
+
+
+class SubscriptionPayment(Base):
+    """Un paiement d'abonnement plateforme enregistré manuellement par l'admin
+    (confirmé après réception sur son Wave, pas d'API de paiement automatisée —
+    même logique que le paiement Wave boutique -> client)."""
+
+    __tablename__ = "subscription_payments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    montant: Mapped[float] = mapped_column(Float)
+    date_paiement: Mapped[date_type] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    shop: Mapped["Shop"] = relationship(back_populates="abonnement_paiements")
+
+
+class PlatformSettings(Base):
+    """Ligne unique (id=1) de paramètres plateforme — pour l'instant seulement le
+    lien de paiement Wave de l'administrateur, vers lequel les boutiques paient
+    leur abonnement MobiBiz."""
+
+    __tablename__ = "platform_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    wave_payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)

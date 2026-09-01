@@ -81,6 +81,7 @@ def run_startup_migrations() -> None:
     _add_columns_if_missing(inspector, "shops", {
         "abonnement_statut": "VARCHAR(20) DEFAULT 'ACTIF'",
         "abonnement_plan": "VARCHAR(20) DEFAULT 'FREE'",
+        "prochain_paiement_le": "DATE",
     })
 
     if inspector.has_table("users"):

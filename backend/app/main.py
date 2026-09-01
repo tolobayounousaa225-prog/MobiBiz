@@ -18,6 +18,7 @@ from .routers import (
     reports,
     shops,
     stock,
+    subscription,
 )
 
 run_startup_migrations()
@@ -46,6 +47,7 @@ app.include_router(finances.router)
 app.include_router(notifications.router)
 app.include_router(public.router)
 app.include_router(admin.router)
+app.include_router(subscription.router)
 
 
 @app.get("/api/health")

@@ -34,8 +34,8 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Boutique</th><th>Propriétaire</th><th>Plan</th><th>Statut</th><th>Produits</th><th>Commandes</th><th>CA</th><th>Inscrite le</th><th></th></tr></thead>
-          <tbody id="shopsBody"><tr><td colspan="9" class="empty">Chargement…</td></tr></tbody>
+          <thead><tr><th>Boutique</th><th>Propriétaire</th><th>Plan</th><th>Statut</th><th>Prochain paiement</th><th>Produits</th><th>Commandes</th><th>CA</th><th>Inscrite le</th><th></th></tr></thead>
+          <tbody id="shopsBody"><tr><td colspan="10" class="empty">Chargement…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -63,6 +63,23 @@
         <div class="form-actions">
           <button class="btn" id="saveShopBtn">Enregistrer</button>
         </div>
+
+        <h2 style="margin-top:22px;font-size:15px">Enregistrer un paiement reçu</h2>
+        <div class="field-row">
+          <div><label for="pay_montant">Montant (FCFA)</label><input type="number" id="pay_montant" min="0"></div>
+          <div><label for="pay_date">Date</label><input type="date" id="pay_date"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn secondary" id="recordPaymentBtn">Enregistrer le paiement</button>
+        </div>
+
+        <h2 style="margin-top:18px;font-size:15px">Historique des paiements</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Montant</th></tr></thead>
+            <tbody id="paymentsBody"><tr><td colspan="2" class="empty">—</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
   `);
@@ -80,7 +97,7 @@
 
     const body = document.getElementById("shopsBody");
     if (rows.length === 0) {
-      body.innerHTML = `<tr><td colspan="9" class="empty">Aucune boutique trouvée</td></tr>`;
+      body.innerHTML = `<tr><td colspan="10" class="empty">Aucune boutique trouvée</td></tr>`;
       return;
     }
     body.innerHTML = rows.map((s) => `
@@ -89,6 +106,7 @@
         <td>${s.proprietaire_nom}<br><span style="color:var(--ink-soft);font-size:12px">${s.proprietaire_telephone}</span></td>
         <td>${PLAN_LABELS[s.abonnement_plan] || s.abonnement_plan}</td>
         <td>${badge(STATUS_LABELS, s.abonnement_statut)}</td>
+        <td>${paymentDueBadge(s.prochain_paiement_le)}</td>
         <td>${s.nombre_produits}</td>
         <td>${s.nombre_commandes}</td>
         <td>${fmtFCFA(s.chiffre_affaires)}</td>
@@ -102,17 +120,46 @@
     });
   }
 
+  async function loadPayments(shopId) {
+    const body = document.getElementById("paymentsBody");
+    body.innerHTML = `<tr><td colspan="2" class="empty">Chargement…</td></tr>`;
+    try {
+      const payments = await api(`/api/admin/boutiques/${shopId}/paiements`);
+      body.innerHTML = payments.length === 0
+        ? `<tr><td colspan="2" class="empty">Aucun paiement enregistré</td></tr>`
+        : payments.map((p) => `<tr><td>${fmtDate(p.date_paiement)}</td><td>${fmtFCFA(p.montant)}</td></tr>`).join("");
+    } catch (err) { toast(err.message, "error"); }
+  }
+
   function openShopModal(shop) {
     currentShopId = shop.id;
     document.getElementById("shopModalTitle").textContent = shop.nom;
     document.getElementById("shopModalOwner").textContent = `${shop.proprietaire_nom} — ${shop.proprietaire_telephone}`;
     document.getElementById("m_statut").value = shop.abonnement_statut;
     document.getElementById("m_plan").value = shop.abonnement_plan;
+    document.getElementById("pay_montant").value = "";
+    document.getElementById("pay_date").value = new Date().toISOString().slice(0, 10);
     document.getElementById("shopModalBackdrop").classList.remove("hidden");
+    loadPayments(shop.id);
   }
 
   document.getElementById("closeShopModal").addEventListener("click", () =>
     document.getElementById("shopModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("recordPaymentBtn").addEventListener("click", async () => {
+    const montant = Number(document.getElementById("pay_montant").value);
+    const date = document.getElementById("pay_date").value;
+    if (!montant || !date) { toast("Montant et date requis", "error"); return; }
+    try {
+      await api(`/api/admin/boutiques/${currentShopId}/paiements`, {
+        method: "POST",
+        body: { montant, date_paiement: date },
+      });
+      await Promise.all([loadShops(), loadPayments(currentShopId)]);
+      document.getElementById("pay_montant").value = "";
+      toast("Paiement enregistré", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
 
   document.getElementById("saveShopBtn").addEventListener("click", async () => {
     const shop = shops.find((s) => s.id === currentShopId);

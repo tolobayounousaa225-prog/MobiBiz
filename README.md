@@ -87,6 +87,14 @@ Implémenté et testé de bout en bout :
   publique) via `deps.get_current_shop` (402) — un seul point de contrôle plutôt que de
   modifier chaque router. **Aucune auto-inscription admin** : le compte s'ajoute
   uniquement en base directement (`railway ssh`), jamais via l'API publique.
+- **Paiement d'abonnement (QR Wave)** ✅ — boucle la suspension : lien Wave niveau
+  plateforme configurable dans `admin-parametres.html` (`PlatformSettings`, ligne
+  unique), QR servi via `GET /api/abonnement/wave-qr.png` (accessible à tout compte
+  connecté, pas seulement l'admin — visible depuis `boutique.html`). Chaque paiement
+  reçu, enregistré manuellement par l'admin (`SubscriptionPayment`), recalcule
+  `shops.prochain_paiement_le` (+30 jours). Dashboard admin : section « échéances
+  proches » (badge rouge en retard, orange ≤5 jours) — pas d'auto-suspension à
+  l'échéance pour l'instant, décision manuelle de l'admin.
 
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en

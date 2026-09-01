@@ -80,6 +80,10 @@
           <label for="p_description">Description (optionnel)</label>
           <textarea id="p_description" rows="2"></textarea>
 
+          <label for="p_photo">Photo (optionnel)</label>
+          <div id="p_photo_preview" style="margin-bottom:8px"></div>
+          <input type="file" id="p_photo" accept=".jpg,.jpeg,.png,.webp,.gif">
+
           <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:16px">
             <input type="checkbox" id="p_promo_actif" style="width:auto"> Promotion active
           </label>
@@ -188,7 +192,10 @@
         : (p.stock <= p.seuil_alerte ? `<span class="badge amber">Stock faible (${p.stock})</span>` : `${p.stock}`);
       return `
         <tr>
-          <td>${p.nom}${p.reference ? ` <span style="color:var(--ink-soft)">(${p.reference})</span>` : ""}</td>
+          <td style="display:flex;align-items:center;gap:8px">
+            ${p.image_url ? `<img src="${API_BASE}${p.image_url}" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0">` : ""}
+            <span>${p.nom}${p.reference ? ` <span style="color:var(--ink-soft)">(${p.reference})</span>` : ""}</span>
+          </td>
           <td>${p.category_id ? categoryName(p.category_id) : "-"}</td>
           <td>${fmtFCFA(p.prix_achat)}</td>
           <td>${p.promo_actif && p.prix_promo != null
@@ -211,6 +218,25 @@
     renderProducts();
   }
 
+  function renderPhotoPreview(product) {
+    const box = document.getElementById("p_photo_preview");
+    if (!product || !product.image_url) { box.innerHTML = ""; return; }
+    box.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px">
+        <img src="${API_BASE}${product.image_url}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+        <button type="button" class="btn danger small" id="removePhotoBtn">Retirer la photo</button>
+      </div>
+    `;
+    document.getElementById("removePhotoBtn").addEventListener("click", async () => {
+      try {
+        const updated = await api(`/api/produits/${product.id}/image`, { method: "DELETE" });
+        renderPhotoPreview(updated);
+        await loadProducts();
+        toast("Photo retirée", "success");
+      } catch (err) { toast(err.message, "error"); }
+    });
+  }
+
   function openProductModal(product) {
     document.getElementById("productModalTitle").textContent = product ? "Modifier le produit" : "Nouveau produit";
     document.getElementById("productId").value = product ? product.id : "";
@@ -222,6 +248,8 @@
     document.getElementById("p_stock").value = product ? product.stock : 0;
     document.getElementById("p_seuil").value = product ? product.seuil_alerte : 5;
     document.getElementById("p_description").value = product ? (product.description || "") : "";
+    document.getElementById("p_photo").value = "";
+    renderPhotoPreview(product);
     document.getElementById("p_promo_actif").checked = product ? !!product.promo_actif : false;
     document.getElementById("p_prix_promo").value = product && product.prix_promo != null ? product.prix_promo : "";
     document.getElementById("deleteProductBtn").classList.toggle("hidden", !product);
@@ -249,11 +277,17 @@
       prix_promo: document.getElementById("p_prix_promo").value ? Number(document.getElementById("p_prix_promo").value) : null,
     };
     try {
-      if (id) {
-        await api(`/api/produits/${id}`, { method: "PUT", body: payload });
-      } else {
-        await api("/api/produits", { method: "POST", body: payload });
+      const savedProduct = id
+        ? await api(`/api/produits/${id}`, { method: "PUT", body: payload })
+        : await api("/api/produits", { method: "POST", body: payload });
+
+      const photoFile = document.getElementById("p_photo").files[0];
+      if (photoFile) {
+        const formData = new FormData();
+        formData.append("file", photoFile);
+        await api(`/api/produits/${savedProduct.id}/image`, { method: "POST", formData });
       }
+
       document.getElementById("productModalBackdrop").classList.add("hidden");
       await loadProducts();
       toast("Produit enregistré", "success");

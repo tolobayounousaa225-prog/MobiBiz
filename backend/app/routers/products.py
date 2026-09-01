@@ -3,10 +3,10 @@ import io
 
 import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import models, schemas, storage
 from ..database import get_db
 from ..deps import get_current_shop, require_any_module, require_module
 
@@ -210,5 +210,55 @@ def delete_product(
     db: Session = Depends(get_db),
 ):
     product = _get_owned_product(db, shop, product_id)
+    storage.delete_stored_file(db, product.image_path)
     db.delete(product)
     db.commit()
+
+
+@router.get("/{product_id}/image")
+def get_product_image(product_id: int, db: Session = Depends(get_db)):
+    """Public (pas d'authentification) : sert aussi les photos sur la boutique
+    publique, consultée sans compte."""
+    product = db.get(models.Product, product_id)
+    if product is None or not product.image_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image introuvable")
+    stored = storage.get_stored_file(db, product.image_path)
+    if stored is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image introuvable")
+    return Response(content=stored.data, media_type=stored.content_type)
+
+
+@router.post("/{product_id}/image", response_model=schemas.ProductOut)
+async def upload_product_image(
+    product_id: int,
+    file: UploadFile,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    product = _get_owned_product(db, shop, product_id)
+    try:
+        new_path = await storage.save_upload(db, file, "produits", storage.ALLOWED_PHOTO_EXT)
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+
+    storage.delete_stored_file(db, product.image_path)
+    product.image_path = new_path
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+@router.delete("/{product_id}/image", response_model=schemas.ProductOut)
+def remove_product_image(
+    product_id: int,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    product = _get_owned_product(db, shop, product_id)
+    storage.delete_stored_file(db, product.image_path)
+    product.image_path = None
+    db.commit()
+    db.refresh(product)
+    return product

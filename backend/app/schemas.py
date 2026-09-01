@@ -77,7 +77,6 @@ class ProductIn(BaseModel):
     prix_vente: float = Field(ge=0, default=0)
     stock: int = Field(ge=0, default=0)
     seuil_alerte: int = Field(ge=0, default=5)
-    image_url: str | None = None
     actif: bool = True
     prix_promo: float | None = Field(ge=0, default=None)
     promo_actif: bool = False
@@ -87,6 +86,7 @@ class ProductOut(ProductIn):
     model_config = ConfigDict(from_attributes=True)
     id: int
     shop_id: int
+    image_url: str | None = None
     created_at: datetime
 
 

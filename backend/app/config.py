@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     cors_origins: str = "http://localhost:5510,http://127.0.0.1:5510"
+    max_upload_size_mb: int = 5
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

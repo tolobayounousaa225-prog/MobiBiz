@@ -77,6 +77,7 @@ def run_startup_migrations() -> None:
     _add_columns_if_missing(inspector, "products", {
         "prix_promo": "FLOAT",
         "promo_actif": "BOOLEAN DEFAULT FALSE",
+        "image_path": "VARCHAR(300)",
     })
     _add_columns_if_missing(inspector, "orders", {
         "mode_livraison": "VARCHAR(20)",

@@ -10,6 +10,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
 )
@@ -27,6 +28,22 @@ def ensure_aware(dt: datetime) -> datetime:
     column, so a value read back can be naive while now_utc() is always aware.
     Treat a naive value as UTC (the only timezone ever written) before comparing."""
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+class StoredFile(Base):
+    """Fichier uploadé (photo produit...) stocké en base de données plutôt que sur
+    le disque du conteneur — Railway ne fournit pas de disque persistant, il est
+    réinitialisé à chaque déploiement (même problème et même correctif que sur
+    LECIM, voir la mémoire "lecim_file_storage_architecture"). `path` sert de clé
+    logique (ex. "produits/<uuid>.jpg")."""
+
+    __tablename__ = "stored_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    path: Mapped[str] = mapped_column(String(300), unique=True, nullable=False, index=True)
+    content_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
 
 class UserRole(str, enum.Enum):
@@ -178,7 +195,7 @@ class Product(Base):
     prix_vente: Mapped[float] = mapped_column(Float, default=0)
     stock: Mapped[int] = mapped_column(Integer, default=0)
     seuil_alerte: Mapped[int] = mapped_column(Integer, default=5)
-    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
     prix_promo: Mapped[float | None] = mapped_column(Float, nullable=True)
     promo_actif: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -187,6 +204,10 @@ class Product(Base):
     shop: Mapped["Shop"] = relationship(back_populates="products")
     category: Mapped["Category | None"] = relationship(back_populates="products")
     stock_movements: Mapped[list["StockMovement"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+
+    @property
+    def image_url(self) -> str | None:
+        return f"/api/produits/{self.id}/image" if self.image_path else None
 
     @property
     def effective_price(self) -> float:

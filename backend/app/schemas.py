@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from .models import EmployeeRole, ExpenseCategory, NotificationType, OrderStatus, PaiementStatut, UserRole
+from .models import DeliveryMode, EmployeeRole, ExpenseCategory, NotificationType, OrderStatus, PaiementStatut, UserRole
 
 
 # ---------- Auth ----------
@@ -79,6 +79,8 @@ class ProductIn(BaseModel):
     seuil_alerte: int = Field(ge=0, default=5)
     image_url: str | None = None
     actif: bool = True
+    prix_promo: float | None = Field(ge=0, default=None)
+    promo_actif: bool = False
 
 
 class ProductOut(ProductIn):
@@ -140,12 +142,19 @@ class OrderOut(BaseModel):
     numero: str
     customer_id: int
     customer_nom: str | None = None
+    customer_telephone: str | None = None
     reduction: float
     frais_livraison: float
     total: float
     statut: OrderStatus
     paiement_statut: PaiementStatut
     notes: str | None = None
+    mode_livraison: DeliveryMode | None = None
+    livreur_nom: str | None = None
+    adresse_livraison: str | None = None
+    commune_livraison: str | None = None
+    heure_livraison_prevue: datetime | None = None
+    preuve_livraison: str | None = None
     created_at: datetime
     items: list[OrderItemOut] = []
 
@@ -156,6 +165,15 @@ class OrderStatusIn(BaseModel):
 
 class PaiementStatutIn(BaseModel):
     paiement_statut: PaiementStatut
+
+
+class DeliveryUpdateIn(BaseModel):
+    mode_livraison: DeliveryMode | None = None
+    livreur_nom: str | None = None
+    adresse_livraison: str | None = None
+    commune_livraison: str | None = None
+    heure_livraison_prevue: datetime | None = None
+    preuve_livraison: str | None = None
 
 
 # ---------- Stock ----------
@@ -243,6 +261,8 @@ class PublicProductOut(BaseModel):
     nom: str
     description: str | None = None
     prix_vente: float
+    prix_promo: float | None = None
+    promo_actif: bool = False
     image_url: str | None = None
     stock: int
     category_id: int | None = None

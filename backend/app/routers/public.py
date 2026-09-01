@@ -101,10 +101,10 @@ def create_public_order(slug: str, payload: schemas.PublicOrderIn, request: Requ
             order_id=order.id,
             product_id=product.id,
             quantite=item.quantite,
-            prix_unitaire=product.prix_vente,
+            prix_unitaire=product.effective_price,
             prix_achat_unitaire=product.prix_achat,
         ))
-        sous_total += product.prix_vente * item.quantite
+        sous_total += product.effective_price * item.quantite
 
     order.total = sous_total
     notify(

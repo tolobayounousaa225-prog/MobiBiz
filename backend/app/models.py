@@ -68,6 +68,12 @@ class NotificationType(str, enum.Enum):
     PAIEMENT_RECU = "paiement_recu"
 
 
+class DeliveryMode(str, enum.Enum):
+    INTERNE = "interne"
+    PARTENAIRE = "partenaire"
+    RETRAIT_BOUTIQUE = "retrait_boutique"
+
+
 class OrderStatus(str, enum.Enum):
     NOUVELLE = "nouvelle"
     CONFIRMEE = "confirmee"
@@ -174,11 +180,19 @@ class Product(Base):
     seuil_alerte: Mapped[int] = mapped_column(Integer, default=5)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
+    prix_promo: Mapped[float | None] = mapped_column(Float, nullable=True)
+    promo_actif: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     shop: Mapped["Shop"] = relationship(back_populates="products")
     category: Mapped["Category | None"] = relationship(back_populates="products")
     stock_movements: Mapped[list["StockMovement"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+
+    @property
+    def effective_price(self) -> float:
+        if self.promo_actif and self.prix_promo is not None:
+            return self.prix_promo
+        return self.prix_vente
 
 
 class Customer(Base):
@@ -210,6 +224,12 @@ class Order(Base):
     statut: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.NOUVELLE)
     paiement_statut: Mapped[PaiementStatut] = mapped_column(Enum(PaiementStatut), default=PaiementStatut.EN_ATTENTE)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mode_livraison: Mapped[DeliveryMode | None] = mapped_column(Enum(DeliveryMode), nullable=True)
+    livreur_nom: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    adresse_livraison: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    commune_livraison: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    heure_livraison_prevue: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    preuve_livraison: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     shop: Mapped["Shop"] = relationship(back_populates="orders")
@@ -219,6 +239,10 @@ class Order(Base):
     @property
     def customer_nom(self) -> str | None:
         return self.customer.nom if self.customer else None
+
+    @property
+    def customer_telephone(self) -> str | None:
+        return self.customer.telephone if self.customer else None
 
 
 class OrderItem(Base):

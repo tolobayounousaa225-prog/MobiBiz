@@ -74,6 +74,13 @@
         <div class="category-tabs" id="categoryTabs"></div>
         <div class="product-grid" id="productGrid"></div>
       </div>
+      ${shopData.whatsapp ? `
+        <a href="${waLink(shopData.whatsapp, `Bonjour, je viens de votre boutique ${shopData.nom} en ligne.`)}" target="_blank" rel="noopener"
+           style="position:fixed;bottom:80px;right:20px;background:#25D366;color:#fff;width:52px;height:52px;border-radius:50%;
+                  display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:var(--shadow);z-index:45;text-decoration:none">
+          💬
+        </a>
+      ` : ""}
       <div class="cart-bar" id="cartBar">
         <span id="cartSummary"></span>
         <button class="btn" id="openCheckoutBtn">Commander</button>
@@ -95,6 +102,9 @@
     injectCheckoutModal();
   }
 
+  function hasPromo(p) { return p.promo_actif && p.prix_promo != null; }
+  function effectivePrice(p) { return hasPromo(p) ? p.prix_promo : p.prix_vente; }
+
   function renderProducts(categoryFilter) {
     const grid = document.getElementById("productGrid");
     const list = categoryFilter
@@ -111,7 +121,9 @@
         <div class="name">${p.nom}</div>
         ${categoryName(p.category_id) ? `<div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:4px">${categoryName(p.category_id)}</div>` : ""}
         <div class="desc">${p.description || ""}</div>
-        <div class="price">${fmtFCFA(p.prix_vente)}</div>
+        <div class="price">${hasPromo(p)
+          ? `<span style="text-decoration:line-through;color:var(--ink-soft);font-weight:400;font-size:12.5px">${fmtFCFA(p.prix_vente)}</span> <span class="badge orange">Promo ${fmtFCFA(p.prix_promo)}</span>`
+          : fmtFCFA(p.prix_vente)}</div>
         <button class="btn small" data-add="${p.id}">Ajouter</button>
       </div>
     `).join("");
@@ -140,7 +152,7 @@
     const bar = document.getElementById("cartBar");
     if (entries.length === 0) { bar.classList.remove("visible"); return; }
     const totalQty = entries.reduce((s, e) => s + e.qty, 0);
-    const total = entries.reduce((s, e) => s + e.qty * e.product.prix_vente, 0);
+    const total = entries.reduce((s, e) => s + e.qty * effectivePrice(e.product), 0);
     document.getElementById("cartSummary").textContent = `${totalQty} article(s) — ${fmtFCFA(total)}`;
     bar.classList.add("visible");
   }
@@ -173,7 +185,7 @@
       document.getElementById("cartItemsList").innerHTML = entries.map((e) => `
         <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px">
           <span>${e.product.nom} × ${e.qty}</span>
-          <span>${fmtFCFA(e.product.prix_vente * e.qty)}</span>
+          <span>${fmtFCFA(effectivePrice(e.product) * e.qty)}</span>
         </div>
       `).join("");
       document.getElementById("checkoutResult").innerHTML = "";

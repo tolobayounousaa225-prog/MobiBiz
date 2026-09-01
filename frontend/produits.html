@@ -80,6 +80,12 @@
           <label for="p_description">Description (optionnel)</label>
           <textarea id="p_description" rows="2"></textarea>
 
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:16px">
+            <input type="checkbox" id="p_promo_actif" style="width:auto"> Promotion active
+          </label>
+          <label for="p_prix_promo">Prix promotionnel (FCFA)</label>
+          <input type="number" id="p_prix_promo" min="0" step="1" placeholder="Laisser vide si pas de promo">
+
           <div class="form-actions">
             <button type="submit" class="btn">Enregistrer</button>
             <button type="button" class="btn danger hidden" id="deleteProductBtn">Supprimer</button>
@@ -185,7 +191,9 @@
           <td>${p.nom}${p.reference ? ` <span style="color:var(--ink-soft)">(${p.reference})</span>` : ""}</td>
           <td>${p.category_id ? categoryName(p.category_id) : "-"}</td>
           <td>${fmtFCFA(p.prix_achat)}</td>
-          <td>${fmtFCFA(p.prix_vente)}</td>
+          <td>${p.promo_actif && p.prix_promo != null
+            ? `<span style="text-decoration:line-through;color:var(--ink-soft)">${fmtFCFA(p.prix_vente)}</span> <span class="badge orange">${fmtFCFA(p.prix_promo)}</span>`
+            : fmtFCFA(p.prix_vente)}</td>
           <td>${stockBadge}</td>
           <td>${p.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Inactif</span>`}</td>
           <td><button class="btn secondary small" data-edit="${p.id}">Modifier</button></td>
@@ -214,6 +222,8 @@
     document.getElementById("p_stock").value = product ? product.stock : 0;
     document.getElementById("p_seuil").value = product ? product.seuil_alerte : 5;
     document.getElementById("p_description").value = product ? (product.description || "") : "";
+    document.getElementById("p_promo_actif").checked = product ? !!product.promo_actif : false;
+    document.getElementById("p_prix_promo").value = product && product.prix_promo != null ? product.prix_promo : "";
     document.getElementById("deleteProductBtn").classList.toggle("hidden", !product);
     document.getElementById("productModalBackdrop").classList.remove("hidden");
   }
@@ -235,6 +245,8 @@
       seuil_alerte: Number(document.getElementById("p_seuil").value),
       description: document.getElementById("p_description").value.trim() || null,
       actif: true,
+      promo_actif: document.getElementById("p_promo_actif").checked,
+      prix_promo: document.getElementById("p_prix_promo").value ? Number(document.getElementById("p_prix_promo").value) : null,
     };
     try {
       if (id) {

@@ -127,11 +127,11 @@ def create_order(
             order_id=order.id,
             product_id=product.id,
             quantite=item.quantite,
-            prix_unitaire=product.prix_vente,
+            prix_unitaire=product.effective_price,
             prix_achat_unitaire=product.prix_achat,
         )
         db.add(order_item)
-        sous_total += product.prix_vente * item.quantite
+        sous_total += product.effective_price * item.quantite
 
     order.total = max(sous_total - payload.reduction, 0) + payload.frais_livraison
     notify(
@@ -197,6 +197,21 @@ def update_order_payment(
             order_id=order.id,
         )
     order.paiement_statut = payload.paiement_statut
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+@router.patch("/{order_id}/livraison", response_model=schemas.OrderOut)
+def update_order_delivery(
+    order_id: int,
+    payload: schemas.DeliveryUpdateIn,
+    shop: models.Shop = Depends(get_current_shop),
+    db: Session = Depends(get_db),
+):
+    order = _get_owned_order(db, shop, order_id)
+    for field, value in payload.model_dump().items():
+        setattr(order, field, value)
     db.commit()
     db.refresh(order)
     return order

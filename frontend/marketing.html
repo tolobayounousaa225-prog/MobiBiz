@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketing — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("marketing", "Marketing", "Relancez vos clients par segment via WhatsApp");
+
+  const SEGMENT_LABELS = {
+    nouveau: ["Nouveau", "gray"],
+    regulier: ["Régulier", "blue"],
+    vip: ["VIP", "orange"],
+    inactif: ["Inactif", "red"],
+  };
+
+  const DEFAULT_TEMPLATES = {
+    nouveau: "Bonjour {nom}, merci pour votre première commande chez nous ! N'hésitez pas à revenir, on a toujours de nouveaux produits 😊",
+    regulier: "Bonjour {nom}, merci pour votre fidélité ! Découvrez nos dernières nouveautés.",
+    vip: "Bonjour {nom}, en tant que client(e) privilégié(e), profitez d'une offre spéciale rien que pour vous 🎁",
+    inactif: "Bonjour {nom}, ça fait un moment ! On a pensé à vous avec de nouveaux produits, venez jeter un œil 👋",
+  };
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="kpi-grid" id="segmentKpis"></div>
+
+    <div class="card">
+      <h2>Campagne WhatsApp par segment</h2>
+      <label for="segmentSelect">Segment ciblé</label>
+      <select id="segmentSelect">
+        <option value="nouveau">Nouveaux clients</option>
+        <option value="regulier">Clients réguliers</option>
+        <option value="vip">Clients VIP</option>
+        <option value="inactif">Clients inactifs</option>
+      </select>
+
+      <label for="messageTemplate">Message (utilisez {nom} pour personnaliser)</label>
+      <textarea id="messageTemplate" rows="3"></textarea>
+
+      <div class="form-actions">
+        <button class="btn" id="generateLinksBtn">Générer les messages</button>
+      </div>
+
+      <div id="campaignResult" style="margin-top:16px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Promotions</h2>
+      <p style="color:var(--ink-soft);margin-top:0">
+        Les promotions se gèrent produit par produit depuis la page
+        <a href="produits.html" style="color:var(--orange-dark);font-weight:600">Produits</a>
+        (case « Promotion active » + prix promotionnel). Elles s'affichent automatiquement
+        sur votre boutique publique si elle est activée.
+      </p>
+    </div>
+  `;
+
+  let customers = [];
+
+  function segmentCounts() {
+    const counts = { nouveau: 0, regulier: 0, vip: 0, inactif: 0 };
+    customers.forEach((c) => { if (counts[c.segment] !== undefined) counts[c.segment] += 1; });
+    return counts;
+  }
+
+  function renderKpis() {
+    const counts = segmentCounts();
+    document.getElementById("segmentKpis").innerHTML = Object.entries(SEGMENT_LABELS).map(([key, [label]]) => `
+      <div class="kpi"><div class="label">${label}</div><div class="value orange">${counts[key]}</div></div>
+    `).join("");
+  }
+
+  function updateTemplatePlaceholder() {
+    const segment = document.getElementById("segmentSelect").value;
+    document.getElementById("messageTemplate").value = DEFAULT_TEMPLATES[segment];
+  }
+
+  document.getElementById("segmentSelect").addEventListener("change", updateTemplatePlaceholder);
+
+  document.getElementById("generateLinksBtn").addEventListener("click", () => {
+    const segment = document.getElementById("segmentSelect").value;
+    const template = document.getElementById("messageTemplate").value.trim();
+    const box = document.getElementById("campaignResult");
+
+    if (!template) { toast("Écrivez un message", "error"); return; }
+
+    const targets = customers.filter((c) => c.segment === segment && c.telephone);
+    if (targets.length === 0) {
+      box.innerHTML = `<p class="empty">Aucun client avec un numéro de téléphone dans ce segment</p>`;
+      return;
+    }
+
+    box.innerHTML = `
+      <p style="font-size:13px;color:var(--ink-soft);margin-bottom:8px">
+        ${targets.length} client(s) — cliquez pour ouvrir WhatsApp avec le message pré-rempli pour chacun.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Client</th><th>Téléphone</th><th></th></tr></thead>
+          <tbody>
+            ${targets.map((c) => `
+              <tr>
+                <td>${c.nom}</td>
+                <td>${c.telephone}</td>
+                <td><a class="btn small" target="_blank" rel="noopener" href="${waLink(c.telephone, template.replace(/\{nom\}/g, c.nom))}">Envoyer</a></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  });
+
+  async function load() {
+    customers = await api("/api/clients");
+    renderKpis();
+    updateTemplatePlaceholder();
+  }
+
+  load().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

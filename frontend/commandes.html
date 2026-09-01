@@ -249,7 +249,16 @@
         <div id="waveQrBox" style="margin-top:10px"></div>
       ` : ""}
 
-      <label for="detailStatus">Statut de la commande</label>
+      ${order.customer_telephone ? `
+        <label style="margin-top:16px">Envoyer un message WhatsApp au client</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <a class="btn secondary small" target="_blank" rel="noopener" href="${waLink(order.customer_telephone, `Bonjour ${order.customer_nom || ""}, votre commande ${order.numero} (${Math.round(order.total)} FCFA) a bien été reçue. Merci de votre confiance !`)}">Confirmation</a>
+          <a class="btn secondary small" target="_blank" rel="noopener" href="${waLink(order.customer_telephone, `Bonjour ${order.customer_nom || ""}, votre commande ${order.numero} est en cours de livraison.`)}">En livraison</a>
+          <a class="btn secondary small" target="_blank" rel="noopener" href="${waLink(order.customer_telephone, `Bonjour ${order.customer_nom || ""}, votre commande ${order.numero} a bien été livrée. Merci pour votre achat !`)}">Livrée</a>
+        </div>
+      ` : ""}
+
+      <label for="detailStatus" style="margin-top:16px">Statut de la commande</label>
       <select id="detailStatus" ${nextStatuses.length === 0 ? "disabled" : ""}>
         <option value="${order.statut}">${ORDER_STATUS_LABELS[order.statut][0]} (actuel)</option>
         ${nextStatuses.map((s) => `<option value="${s}">${ORDER_STATUS_LABELS[s][0]}</option>`).join("")}
@@ -263,6 +272,31 @@
 
       <div class="form-actions">
         <button class="btn" id="saveDetailBtn">Mettre à jour</button>
+      </div>
+
+      <h2 style="margin-top:24px;font-size:15px">Livraison</h2>
+      <label for="detailMode">Mode</label>
+      <select id="detailMode">
+        <option value="">Non défini</option>
+        ${Object.entries(DELIVERY_MODE_LABELS).map(([k, label]) =>
+          `<option value="${k}" ${k === order.mode_livraison ? "selected" : ""}>${label}</option>`).join("")}
+      </select>
+
+      <div class="field-row">
+        <div><label for="detailLivreur">Livreur</label><input type="text" id="detailLivreur" value="${order.livreur_nom || ""}"></div>
+        <div><label for="detailHeure">Heure prévue</label><input type="datetime-local" id="detailHeure" value="${order.heure_livraison_prevue ? order.heure_livraison_prevue.slice(0, 16) : ""}"></div>
+      </div>
+
+      <div class="field-row">
+        <div><label for="detailAdresseLivraison">Adresse de livraison</label><input type="text" id="detailAdresseLivraison" value="${order.adresse_livraison || ""}"></div>
+        <div><label for="detailCommuneLivraison">Commune</label><input type="text" id="detailCommuneLivraison" value="${order.commune_livraison || ""}"></div>
+      </div>
+
+      <label for="detailPreuve">Preuve de livraison (note)</label>
+      <textarea id="detailPreuve" rows="2" placeholder="Ex: remis en main propre, signé par...">${order.preuve_livraison || ""}</textarea>
+
+      <div class="form-actions">
+        <button class="btn secondary" id="saveLivraisonBtn">Enregistrer la livraison</button>
       </div>
     `;
 
@@ -292,6 +326,26 @@
         document.getElementById("orderDetailBackdrop").classList.add("hidden");
         await Promise.all([loadOrders(), loadProducts()]);
         toast("Commande mise à jour", "success");
+      } catch (err) { toast(err.message, "error"); }
+    });
+
+    document.getElementById("saveLivraisonBtn").addEventListener("click", async () => {
+      const heure = document.getElementById("detailHeure").value;
+      try {
+        await api(`/api/commandes/${order.id}/livraison`, {
+          method: "PATCH",
+          body: {
+            mode_livraison: document.getElementById("detailMode").value || null,
+            livreur_nom: document.getElementById("detailLivreur").value.trim() || null,
+            adresse_livraison: document.getElementById("detailAdresseLivraison").value.trim() || null,
+            commune_livraison: document.getElementById("detailCommuneLivraison").value.trim() || null,
+            heure_livraison_prevue: heure ? new Date(heure).toISOString() : null,
+            preuve_livraison: document.getElementById("detailPreuve").value.trim() || null,
+          },
+        });
+        document.getElementById("orderDetailBackdrop").classList.add("hidden");
+        await loadOrders();
+        toast("Livraison mise à jour", "success");
       } catch (err) { toast(err.message, "error"); }
     });
 

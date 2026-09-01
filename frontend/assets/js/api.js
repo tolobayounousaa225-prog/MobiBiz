@@ -108,3 +108,24 @@ function badge(labelMap, key) {
   const [label, color] = labelMap[key] || [key, "gray"];
   return `<span class="badge ${color}">${label}</span>`;
 }
+
+const DELIVERY_MODE_LABELS = {
+  interne: "Livraison interne",
+  partenaire: "Livreur partenaire",
+  retrait_boutique: "Retrait en boutique",
+};
+
+// Convertit un numéro ivoirien local (07..., 05..., 01..., avec ou sans espaces/tirets)
+// au format international sans "+" attendu par l'API wa.me. Un numéro déjà
+// international (commence par 225 ou +225) est simplement nettoyé.
+function toWhatsAppNumber(phone) {
+  const digits = (phone || "").replace(/[^0-9]/g, "");
+  if (digits.startsWith("225")) return digits;
+  if (digits.startsWith("0")) return "225" + digits.slice(1);
+  return digits;
+}
+
+function waLink(phone, message) {
+  const number = toWhatsAppNumber(phone);
+  return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+}

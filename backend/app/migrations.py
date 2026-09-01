@@ -33,6 +33,18 @@ def _backfill_shop_slugs() -> None:
         db.close()
 
 
+def _add_columns_if_missing(inspector, table: str, columns_sql: dict[str, str]) -> None:
+    """columns_sql: {nom_colonne: fragment DDL apres le nom, ex. "VARCHAR(20)"}."""
+    if not inspector.has_table(table):
+        return
+    existing = {c["name"] for c in inspector.get_columns(table)}
+    for name, ddl in columns_sql.items():
+        if name not in existing:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+            logger.info("Colonne %s ajoutée à %s.", name, table)
+
+
 def run_startup_migrations() -> None:
     inspector = inspect(engine)
 
@@ -61,6 +73,19 @@ def run_startup_migrations() -> None:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE users ADD COLUMN employee_role VARCHAR(20)"))
             logger.info("Colonne employee_role ajoutée à users.")
+
+    _add_columns_if_missing(inspector, "products", {
+        "prix_promo": "FLOAT",
+        "promo_actif": "BOOLEAN DEFAULT FALSE",
+    })
+    _add_columns_if_missing(inspector, "orders", {
+        "mode_livraison": "VARCHAR(20)",
+        "livreur_nom": "VARCHAR(150)",
+        "adresse_livraison": "VARCHAR(255)",
+        "commune_livraison": "VARCHAR(120)",
+        "heure_livraison_prevue": "TIMESTAMP",
+        "preuve_livraison": "TEXT",
+    })
 
     Base.metadata.create_all(bind=engine)
 

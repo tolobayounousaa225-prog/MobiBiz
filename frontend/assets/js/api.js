@@ -1,6 +1,6 @@
 const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? "http://127.0.0.1:8010"
-  : "https://api.mobibiz.example"; // à remplacer par l'URL de production au déploiement
+  : "https://mobibiz-backend-production.up.railway.app";
 
 const Auth = {
   getToken() { return localStorage.getItem("mobibiz_token"); },

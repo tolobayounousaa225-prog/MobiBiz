@@ -41,15 +41,34 @@ Implémenté et testé de bout en bout :
 - **Boutique publique** ✅ — page client sans compte (`boutique-publique.html?slug=...`),
   activable depuis les paramètres boutique, catalogue + commande invité.
 
+## V3
+
+- **Livraison** ✅ — mode (interne / livreur partenaire / retrait boutique), livreur,
+  adresse et commune de livraison (indépendantes de celles du client), heure prévue,
+  note de preuve, gérés depuis la fiche commande.
+- **WhatsApp** ✅ — pas d'API WhatsApp Business (nécessiterait un compte Meta Business +
+  un fournisseur agréé que l'utilisateur n'a pas encore) : liens `wa.me` pré-remplis à la
+  place (confirmation/livraison/livrée depuis une commande, bouton flottant sur la
+  boutique publique, campagnes par segment). `assets/js/api.js` expose `waLink(phone,
+  message)` et `toWhatsAppNumber(phone)` (normalise 07/05/01... vers le format
+  international attendu par wa.me) pour toute future page qui en aurait besoin.
+- **Promotions** ✅ — `prix_promo` + `promo_actif` sur chaque produit, appliqués via
+  `Product.effective_price` aussi bien pour les commandes internes que pour la boutique
+  publique (un seul point de calcul du prix facturé, pour éviter que les deux chemins
+  divergent).
+- **Marketing / fidélisation** ✅ — page dédiée : compteurs par segment client, message
+  personnalisable (`{nom}`), un lien WhatsApp généré par client ciblé — pas d'envoi
+  groupé automatique, faute d'API d'envoi en masse.
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de
 colonne doit y passer.
 
-**Non implémenté volontairement** (prévu aux versions suivantes du cahier des charges,
-section 30 et suivantes) : paiement mobile money automatisé (au-delà du QR Wave
-manuel), livraison, intégrations WhatsApp, marketing, fidélisation (V3) ; assistant IA
-(V4) ; marketplace multi-acteurs (V5).
+**Non implémenté volontairement** : vraie API WhatsApp Business (nécessite un compte
+Meta Business créé par l'utilisateur), paiement mobile money automatisé au-delà du QR
+Wave manuel. **Prévu en V4** : assistant IA (nécessite une clé API d'un modèle de
+langage, pas encore fournie). **Prévu en V5** : marketplace multi-acteurs.
 
 ## Stack technique
 

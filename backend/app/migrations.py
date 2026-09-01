@@ -45,6 +45,21 @@ def _add_columns_if_missing(inspector, table: str, columns_sql: dict[str, str]) 
             logger.info("Colonne %s ajoutée à %s.", name, table)
 
 
+def _ensure_enum_value(pg_enum_name: str, value: str) -> None:
+    """Ajoute une valeur à un type ENUM Postgres déjà créé — nécessaire quand un
+    membre est ajouté à un `enum.Enum` Python *après* que la table qui l'utilise
+    a déjà été créée en production : `Base.metadata.create_all()` crée le TYPE une
+    seule fois et ne le modifie jamais ensuite, contrairement à SQLite (utilisé en
+    dev local) qui ne fait aucune vérification stricte de type ENUM — d'où un bug
+    invisible en local mais bloquant en production (`invalid input value for enum`).
+    `ADD VALUE IF NOT EXISTS` doit tourner en dehors d'un bloc de transaction
+    explicite sur Postgres, d'où l'isolation AUTOCOMMIT plutôt que engine.begin()."""
+    if engine.dialect.name != "postgresql":
+        return
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        conn.execute(text(f"ALTER TYPE {pg_enum_name} ADD VALUE IF NOT EXISTS '{value}'"))
+
+
 def run_startup_migrations() -> None:
     inspector = inspect(engine)
 
@@ -73,6 +88,12 @@ def run_startup_migrations() -> None:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE users ADD COLUMN employee_role VARCHAR(20)"))
             logger.info("Colonne employee_role ajoutée à users.")
+
+    # UserRole.EMPLOYEE a été ajouté après la création initiale de la table users
+    # (V1 n'avait que ADMIN/OWNER) — le type ENUM Postgres doit être mis à jour
+    # explicitement, sinon toute tentative de créer un employé échoue en
+    # production avec "invalid input value for enum userrole: EMPLOYEE".
+    _ensure_enum_value("userrole", "EMPLOYEE")
 
     _add_columns_if_missing(inspector, "products", {
         "prix_promo": "FLOAT",

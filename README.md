@@ -59,6 +59,13 @@ Implémenté et testé de bout en bout :
 - **Marketing / fidélisation** ✅ — page dédiée : compteurs par segment client, message
   personnalisable (`{nom}`), un lien WhatsApp généré par client ciblé — pas d'envoi
   groupé automatique, faute d'API d'envoi en masse.
+- **Photo produit (optionnelle)** ✅ — une photo par produit, stockée en base de données
+  (`stored_files`, `app/storage.py`) et non sur disque : Railway ne fournit pas de disque
+  persistant à `mobibiz-backend` (même contrainte que LECIM), tout fichier écrit sur le
+  disque du conteneur disparaîtrait au prochain déploiement. Servie via
+  `GET /api/produits/{id}/image` (public, nécessaire pour la boutique publique). Upload
+  validé par whitelist d'extension + vérification des magic bytes, 5 Mo max
+  (`settings.max_upload_size_mb`).
 
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en

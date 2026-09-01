@@ -20,21 +20,36 @@ Implémenté et testé de bout en bout :
 - Rapports simples (export CSV ventes / produits / clients, protégé contre l'injection
   de formule CSV)
 
-## V2 en cours
+## V2
 
 - **Paiement Wave (QR code)** ✅ — le commerçant enregistre son lien de paiement Wave
   Business (page « Ma boutique »), un QR code est généré côté serveur et affichable
   depuis la boutique et depuis chaque commande (avec le montant à encaisser). Pas
   d'API paiement (Wave n'en expose pas à un petit marchand) : confirmation du paiement
-  reçu toujours manuelle. A fait introduire `app/migrations.py` (migrations idempotentes
-  au démarrage, même mécanisme que LECIM) — nécessaire pour faire évoluer le schéma
-  d'une table déjà créée en production ; `Base.metadata.create_all()` seul ne suffit
-  plus, tout futur ajout de colonne doit passer par ce fichier.
+  reçu toujours manuelle.
+- **Employés & rôles** ✅ — le propriétaire crée des comptes vendeur / magasinier /
+  comptable / manager (page « Employés »), chacun avec un accès restreint par module
+  (produits, commandes, stock, finance) appliqué côté backend (`deps.require_module`)
+  et reflété côté frontend (menu filtré par rôle dans `layout.js`).
+- **Notifications in-app** ✅ — cloche avec compteur non lu (nouvelle commande, stock
+  faible, paiement reçu). Pas de SMS/WhatsApp/push navigateur : nécessiterait un
+  service tiers (Twilio, VAPID...) non configuré pour l'instant.
+- **Finances & dépenses** ✅ — page « Finances » (dépenses par catégorie + résumé CA /
+  coût produits / dépenses / bénéfice réel), réservée au propriétaire et au comptable.
+- **Import CSV/Excel de produits** ✅ — modèle téléchargeable, rapport d'erreurs ligne
+  par ligne, catégories créées à la volée si absentes.
+- **Boutique publique** ✅ — page client sans compte (`boutique-publique.html?slug=...`),
+  activable depuis les paramètres boutique, catalogue + commande invité.
+
+`app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
+reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
+production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de
+colonne doit y passer.
 
 **Non implémenté volontairement** (prévu aux versions suivantes du cahier des charges,
-section 30 et suivantes) : paiements en ligne, notifications, employés/rôles, dépenses,
-import Excel, boutique publique (V2) ; livraison, intégrations WhatsApp, marketing,
-fidélisation (V3) ; assistant IA (V4) ; marketplace multi-acteurs (V5).
+section 30 et suivantes) : paiement mobile money automatisé (au-delà du QR Wave
+manuel), livraison, intégrations WhatsApp, marketing, fidélisation (V3) ; assistant IA
+(V4) ; marketplace multi-acteurs (V5).
 
 ## Stack technique
 

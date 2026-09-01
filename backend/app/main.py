@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .migrations import run_startup_migrations
 from .routers import (
+    admin,
     auth,
     categories,
     customers,
@@ -44,6 +45,7 @@ app.include_router(employees.router)
 app.include_router(finances.router)
 app.include_router(notifications.router)
 app.include_router(public.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health")

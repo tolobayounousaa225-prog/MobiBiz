@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administration — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/admin-layout.js"></script>
+<script>
+  renderAdminLayout("admin-dashboard", "Administration MobiBiz", "Vue d'ensemble de la plateforme");
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="kpi-grid" id="kpiGrid">
+      <div class="kpi"><div class="label">Boutiques actives</div><div class="value green">—</div></div>
+      <div class="kpi"><div class="label">Boutiques suspendues</div><div class="value red">—</div></div>
+      <div class="kpi"><div class="label">Boutiques à l'essai</div><div class="value amber">—</div></div>
+      <div class="kpi"><div class="label">Total boutiques</div><div class="value">—</div></div>
+      <div class="kpi"><div class="label">Utilisateurs</div><div class="value">—</div></div>
+      <div class="kpi"><div class="label">Commandes traitées</div><div class="value">—</div></div>
+      <div class="kpi"><div class="label">CA total plateforme</div><div class="value orange">—</div></div>
+    </div>
+    <div class="card">
+      <h2>Boutiques suspendues</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Boutique</th><th>Propriétaire</th><th>Plan</th><th></th></tr></thead>
+          <tbody id="suspendedBody"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+      <a href="admin-boutiques.html" class="btn small secondary" style="margin-top:10px;display:inline-flex">Voir toutes les boutiques</a>
+    </div>
+  `;
+
+  const PLAN_LABELS = { free: "Free", starter: "Starter", pro: "Pro", business: "Business", enterprise: "Enterprise" };
+
+  async function load() {
+    const [stats, shops] = await Promise.all([
+      api("/api/admin/statistiques"),
+      api("/api/admin/boutiques"),
+    ]);
+
+    const values = document.querySelectorAll("#kpiGrid .value");
+    values[0].textContent = stats.boutiques_actives;
+    values[1].textContent = stats.boutiques_suspendues;
+    values[2].textContent = stats.boutiques_essai;
+    values[3].textContent = stats.boutiques_total;
+    values[4].textContent = stats.utilisateurs_total;
+    values[5].textContent = stats.commandes_total;
+    values[6].textContent = fmtFCFA(stats.chiffre_affaires_total);
+
+    const suspended = shops.filter((s) => s.abonnement_statut === "suspendu");
+    const body = document.getElementById("suspendedBody");
+    body.innerHTML = suspended.length === 0
+      ? `<tr><td colspan="4" class="empty">Aucune boutique suspendue</td></tr>`
+      : suspended.map((s) => `
+          <tr>
+            <td>${s.nom}</td>
+            <td>${s.proprietaire_nom} — ${s.proprietaire_telephone}</td>
+            <td>${PLAN_LABELS[s.abonnement_plan] || s.abonnement_plan}</td>
+            <td><a href="admin-boutiques.html" class="btn secondary small">Gérer</a></td>
+          </tr>
+        `).join("");
+  }
+
+  load().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Utilisateurs — Administration MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/admin-layout.js"></script>
+<script>
+  renderAdminLayout("admin-utilisateurs", "Utilisateurs", "Tous les comptes de la plateforme (support, dépannage)");
+
+  const ROLE_LABELS = {
+    owner: ["Propriétaire", "blue"],
+    employee: ["Employé", "gray"],
+    admin: ["Admin", "orange"],
+  };
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <div class="toolbar">
+        <input type="search" id="searchInput" placeholder="Rechercher par nom ou téléphone…">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nom</th><th>Téléphone</th><th>Rôle</th><th>Boutique</th><th>Statut</th><th>Inscrit le</th></tr></thead>
+          <tbody id="usersBody"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  let users = [];
+
+  function renderUsers() {
+    const q = document.getElementById("searchInput").value.toLowerCase();
+    const rows = users.filter((u) =>
+      `${u.prenom} ${u.nom}`.toLowerCase().includes(q) || u.telephone.includes(q)
+    );
+    const body = document.getElementById("usersBody");
+    body.innerHTML = rows.length === 0
+      ? `<tr><td colspan="6" class="empty">Aucun utilisateur trouvé</td></tr>`
+      : rows.map((u) => `
+          <tr>
+            <td>${u.prenom} ${u.nom}</td>
+            <td>${u.telephone}</td>
+            <td>${badge(ROLE_LABELS, u.role)}${u.employee_role ? ` <span style="color:var(--ink-soft);font-size:12px">(${u.employee_role})</span>` : ""}</td>
+            <td>${u.boutique_nom || "-"}</td>
+            <td>${u.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Désactivé</span>`}</td>
+            <td>${fmtDate(u.created_at)}</td>
+          </tr>
+        `).join("");
+  }
+
+  document.getElementById("searchInput").addEventListener("input", renderUsers);
+
+  async function load() {
+    users = await api("/api/admin/utilisateurs");
+    renderUsers();
+  }
+
+  load().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

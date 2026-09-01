@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boutiques — Administration MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/admin-layout.js"></script>
+<script>
+  renderAdminLayout("admin-boutiques", "Boutiques", "Toutes les boutiques inscrites sur MobiBiz");
+
+  const STATUS_LABELS = {
+    essai: ["Essai", "amber"],
+    actif: ["Actif", "green"],
+    suspendu: ["Suspendu", "red"],
+  };
+  const PLAN_LABELS = { free: "Free", starter: "Starter", pro: "Pro", business: "Business", enterprise: "Enterprise" };
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <div class="toolbar">
+        <input type="search" id="searchInput" placeholder="Rechercher une boutique ou un propriétaire…">
+        <select id="statusFilter">
+          <option value="">Tous les statuts</option>
+          <option value="actif">Actif</option>
+          <option value="essai">Essai</option>
+          <option value="suspendu">Suspendu</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Boutique</th><th>Propriétaire</th><th>Plan</th><th>Statut</th><th>Produits</th><th>Commandes</th><th>CA</th><th>Inscrite le</th><th></th></tr></thead>
+          <tbody id="shopsBody"><tr><td colspan="9" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="shopModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeShopModal">&times;</button>
+        <h2 id="shopModalTitle">Boutique</h2>
+        <p id="shopModalOwner" style="color:var(--ink-soft)"></p>
+
+        <label for="m_statut">Statut de l'abonnement</label>
+        <select id="m_statut">
+          <option value="actif">Actif</option>
+          <option value="essai">Essai</option>
+          <option value="suspendu">Suspendu</option>
+        </select>
+
+        <label for="m_plan">Plan</label>
+        <select id="m_plan">
+          ${Object.entries(PLAN_LABELS).map(([k, label]) => `<option value="${k}">${label}</option>`).join("")}
+        </select>
+
+        <div class="form-actions">
+          <button class="btn" id="saveShopBtn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  let shops = [];
+  let currentShopId = null;
+
+  function renderShops() {
+    const q = document.getElementById("searchInput").value.toLowerCase();
+    const statusFilter = document.getElementById("statusFilter").value;
+    let rows = shops.filter((s) =>
+      s.nom.toLowerCase().includes(q) || s.proprietaire_nom.toLowerCase().includes(q) || s.proprietaire_telephone.includes(q)
+    );
+    if (statusFilter) rows = rows.filter((s) => s.abonnement_statut === statusFilter);
+
+    const body = document.getElementById("shopsBody");
+    if (rows.length === 0) {
+      body.innerHTML = `<tr><td colspan="9" class="empty">Aucune boutique trouvée</td></tr>`;
+      return;
+    }
+    body.innerHTML = rows.map((s) => `
+      <tr>
+        <td>${s.nom}</td>
+        <td>${s.proprietaire_nom}<br><span style="color:var(--ink-soft);font-size:12px">${s.proprietaire_telephone}</span></td>
+        <td>${PLAN_LABELS[s.abonnement_plan] || s.abonnement_plan}</td>
+        <td>${badge(STATUS_LABELS, s.abonnement_statut)}</td>
+        <td>${s.nombre_produits}</td>
+        <td>${s.nombre_commandes}</td>
+        <td>${fmtFCFA(s.chiffre_affaires)}</td>
+        <td>${fmtDate(s.created_at)}</td>
+        <td><button class="btn secondary small" data-manage="${s.id}">Gérer</button></td>
+      </tr>
+    `).join("");
+
+    body.querySelectorAll("[data-manage]").forEach((btn) => {
+      btn.addEventListener("click", () => openShopModal(shops.find((s) => s.id === Number(btn.dataset.manage))));
+    });
+  }
+
+  function openShopModal(shop) {
+    currentShopId = shop.id;
+    document.getElementById("shopModalTitle").textContent = shop.nom;
+    document.getElementById("shopModalOwner").textContent = `${shop.proprietaire_nom} — ${shop.proprietaire_telephone}`;
+    document.getElementById("m_statut").value = shop.abonnement_statut;
+    document.getElementById("m_plan").value = shop.abonnement_plan;
+    document.getElementById("shopModalBackdrop").classList.remove("hidden");
+  }
+
+  document.getElementById("closeShopModal").addEventListener("click", () =>
+    document.getElementById("shopModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("saveShopBtn").addEventListener("click", async () => {
+    const shop = shops.find((s) => s.id === currentShopId);
+    const newStatut = document.getElementById("m_statut").value;
+    const newPlan = document.getElementById("m_plan").value;
+    try {
+      if (newStatut !== shop.abonnement_statut) {
+        await api(`/api/admin/boutiques/${shop.id}/statut`, { method: "PATCH", body: { abonnement_statut: newStatut } });
+      }
+      if (newPlan !== shop.abonnement_plan) {
+        await api(`/api/admin/boutiques/${shop.id}/abonnement`, { method: "PATCH", body: { abonnement_plan: newPlan } });
+      }
+      document.getElementById("shopModalBackdrop").classList.add("hidden");
+      await loadShops();
+      toast("Boutique mise à jour", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("searchInput").addEventListener("input", renderShops);
+  document.getElementById("statusFilter").addEventListener("change", renderShops);
+
+  async function loadShops() {
+    shops = await api("/api/admin/boutiques");
+    renderShops();
+  }
+
+  loadShops().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

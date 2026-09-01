@@ -2,7 +2,17 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from .models import DeliveryMode, EmployeeRole, ExpenseCategory, NotificationType, OrderStatus, PaiementStatut, UserRole
+from .models import (
+    DeliveryMode,
+    EmployeeRole,
+    ExpenseCategory,
+    NotificationType,
+    OrderStatus,
+    PaiementStatut,
+    SubscriptionPlan,
+    SubscriptionStatus,
+    UserRole,
+)
 
 # Questions de sécurité prédéfinies (pas de champ libre, pour éviter des
 # questions/réponses trop faibles ou triviales à deviner).
@@ -91,6 +101,8 @@ class ShopOut(ShopIn):
     id: int
     owner_id: int
     slug: str
+    abonnement_statut: SubscriptionStatus
+    abonnement_plan: SubscriptionPlan
     created_at: datetime
 
 
@@ -333,3 +345,48 @@ class PublicOrderIn(BaseModel):
 class PublicOrderOut(BaseModel):
     numero: str
     total: float
+
+
+# ---------- Administration plateforme ----------
+class AdminShopOut(BaseModel):
+    id: int
+    nom: str
+    slug: str
+    abonnement_statut: SubscriptionStatus
+    abonnement_plan: SubscriptionPlan
+    proprietaire_nom: str
+    proprietaire_telephone: str
+    nombre_produits: int
+    nombre_commandes: int
+    chiffre_affaires: float
+    created_at: datetime
+
+
+class AdminShopStatusIn(BaseModel):
+    abonnement_statut: SubscriptionStatus
+
+
+class AdminShopPlanIn(BaseModel):
+    abonnement_plan: SubscriptionPlan
+
+
+class AdminStatsOut(BaseModel):
+    boutiques_total: int
+    boutiques_actives: int
+    boutiques_suspendues: int
+    boutiques_essai: int
+    utilisateurs_total: int
+    commandes_total: int
+    chiffre_affaires_total: float
+
+
+class AdminUserOut(BaseModel):
+    id: int
+    nom: str
+    prenom: str
+    telephone: str
+    role: UserRole
+    employee_role: EmployeeRole | None = None
+    actif: bool
+    boutique_nom: str | None = None
+    created_at: datetime

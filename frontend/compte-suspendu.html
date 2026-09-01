@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compte suspendu — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card" style="text-align:center">
+    <div class="brand" style="justify-content:center;display:flex">Mobi<span>Biz</span></div>
+    <p style="font-size:40px;margin:14px 0 6px">⛔</p>
+    <h2 style="margin:0 0 10px">Compte suspendu</h2>
+    <p style="color:var(--ink-soft)">
+      L'accès à votre boutique a été suspendu par l'administrateur de la plateforme
+      (généralement pour un abonnement impayé). Contactez le support pour le réactiver.
+    </p>
+    <div class="switch-link" style="margin-top:18px">
+      <a href="#" id="logoutLink">Se déconnecter</a>
+    </div>
+  </div>
+</div>
+<script src="assets/js/api.js"></script>
+<script>
+  document.getElementById("logoutLink").addEventListener("click", (e) => {
+    e.preventDefault();
+    Auth.clear();
+    window.location.href = "index.html";
+  });
+</script>
+</body>
+</html>

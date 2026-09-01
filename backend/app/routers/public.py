@@ -16,7 +16,7 @@ def _get_active_public_shop(db: Session, slug: str) -> models.Shop:
         .filter(models.Shop.slug == slug, models.Shop.boutique_publique_active.is_(True))
         .first()
     )
-    if shop is None:
+    if shop is None or shop.abonnement_statut == models.SubscriptionStatus.SUSPENDU:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Boutique introuvable")
     return shop
 

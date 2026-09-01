@@ -78,6 +78,11 @@ def run_startup_migrations() -> None:
                 conn.execute(text("ALTER TABLE shops ADD COLUMN boutique_publique_active BOOLEAN DEFAULT FALSE"))
             logger.info("Colonne boutique_publique_active ajoutée à shops.")
 
+    _add_columns_if_missing(inspector, "shops", {
+        "abonnement_statut": "VARCHAR(20) DEFAULT 'ACTIF'",
+        "abonnement_plan": "VARCHAR(20) DEFAULT 'FREE'",
+    })
+
     if inspector.has_table("users"):
         columns = {c["name"] for c in inspector.get_columns("users")}
         if "shop_id" not in columns:

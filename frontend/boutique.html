@@ -13,8 +13,16 @@
 <script>
   renderLayout("boutique", "Ma boutique", "Informations affichées à vos clients");
 
+  const PLAN_LABELS = { free: "Free", starter: "Starter", pro: "Pro", business: "Business", enterprise: "Enterprise" };
+  const STATUS_LABELS = {
+    essai: ["Essai", "amber"],
+    actif: ["Abonnement actif", "green"],
+    suspendu: ["Compte suspendu", "red"],
+  };
+
   const content = document.getElementById("pageContent");
   content.innerHTML = `
+    <div class="card" style="max-width:560px" id="subscriptionCard"></div>
     <div class="card" style="max-width:560px">
       <form id="shopForm">
         <label for="s_nom">Nom de la boutique</label>
@@ -95,8 +103,16 @@
     });
   }
 
+  function renderSubscriptionCard(shop) {
+    document.getElementById("subscriptionCard").innerHTML = `
+      <h2>Abonnement</h2>
+      <p>${badge(STATUS_LABELS, shop.abonnement_statut)} — Plan <strong>${PLAN_LABELS[shop.abonnement_plan] || shop.abonnement_plan}</strong></p>
+    `;
+  }
+
   async function load() {
     const shop = await api("/api/boutique");
+    renderSubscriptionCard(shop);
     document.getElementById("s_nom").value = shop.nom || "";
     document.getElementById("s_description").value = shop.description || "";
     document.getElementById("s_telephone").value = shop.telephone || "";

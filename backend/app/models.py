@@ -91,6 +91,20 @@ class DeliveryMode(str, enum.Enum):
     RETRAIT_BOUTIQUE = "retrait_boutique"
 
 
+class SubscriptionStatus(str, enum.Enum):
+    ESSAI = "essai"
+    ACTIF = "actif"
+    SUSPENDU = "suspendu"
+
+
+class SubscriptionPlan(str, enum.Enum):
+    FREE = "free"
+    STARTER = "starter"
+    PRO = "pro"
+    BUSINESS = "business"
+    ENTERPRISE = "enterprise"
+
+
 class OrderStatus(str, enum.Enum):
     NOUVELLE = "nouvelle"
     CONFIRMEE = "confirmee"
@@ -170,6 +184,8 @@ class Shop(Base):
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     wave_payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
     boutique_publique_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    abonnement_statut: Mapped[SubscriptionStatus] = mapped_column(Enum(SubscriptionStatus), default=SubscriptionStatus.ACTIF)
+    abonnement_plan: Mapped[SubscriptionPlan] = mapped_column(Enum(SubscriptionPlan), default=SubscriptionPlan.FREE)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     owner: Mapped["User"] = relationship(back_populates="shops", foreign_keys=[owner_id])

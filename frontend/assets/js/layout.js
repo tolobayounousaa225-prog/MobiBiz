@@ -84,6 +84,10 @@ function renderLayout(activeKey, pageTitle, pageSub) {
   }).catch(() => {});
 
   api("/api/auth/me").then((user) => {
+    if (user.role === "admin") {
+      window.location.href = "admin-dashboard.html";
+      return;
+    }
     const navHtml = NAV_ITEMS.filter((item) => item.show(user)).map(
       (item) => `<a href="${item.href}" class="${item.key === activeKey ? "active" : ""}">${item.label}</a>`
     ).join("");

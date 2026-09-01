@@ -37,7 +37,16 @@
 
 <script src="assets/js/api.js"></script>
 <script>
-  if (Auth.getToken()) window.location.href = "dashboard.html";
+  async function redirectAfterLogin() {
+    try {
+      const user = await api("/api/auth/me");
+      window.location.href = user.role === "admin" ? "admin-dashboard.html" : "dashboard.html";
+    } catch (_) {
+      window.location.href = "dashboard.html";
+    }
+  }
+
+  if (Auth.getToken()) redirectAfterLogin();
 
   document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -56,7 +65,7 @@
         },
       });
       Auth.setToken(data.access_token);
-      window.location.href = "dashboard.html";
+      await redirectAfterLogin();
     } catch (err) {
       errorMsg.textContent = err.message;
       errorMsg.style.display = "block";

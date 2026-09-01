@@ -51,6 +51,12 @@ async function api(path, { method = "GET", body, formData, isBlob = false } = {}
       Auth.clear();
       window.location.href = "index.html";
     }
+    // 402 = boutique suspendue par l'administrateur (voir deps.get_current_shop) :
+    // rediriger vers une page d'explication plutôt que laisser chaque page
+    // afficher une pile de toasts d'erreur peu clairs.
+    if (res.status === 402 && !location.pathname.endsWith("compte-suspendu.html")) {
+      window.location.href = "compte-suspendu.html";
+    }
     throw new Error(detail);
   }
 

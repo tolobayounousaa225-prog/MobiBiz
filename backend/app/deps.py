@@ -39,6 +39,11 @@ def get_current_shop(
         shop = db.query(models.Shop).filter(models.Shop.owner_id == current_user.id).first()
     if shop is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucune boutique associée à ce compte")
+    if shop.abonnement_statut == models.SubscriptionStatus.SUSPENDU:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Ce compte a été suspendu par l'administrateur. Contactez le support pour le réactiver.",
+        )
     return shop
 
 
@@ -81,5 +86,14 @@ def require_owner(current_user: models.User = Depends(get_current_user)) -> mode
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Réservé au propriétaire de la boutique",
+        )
+    return current_user
+
+
+def require_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
+    if current_user.role != models.UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Réservé à l'administrateur de la plateforme",
         )
     return current_user

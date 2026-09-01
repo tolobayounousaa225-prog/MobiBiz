@@ -9,7 +9,8 @@ l'utilisateur pour la vision produit complète (40 sections, modules 1 à 15).
 ## État actuel : MVP (V1 — section 29 du cahier des charges)
 
 Implémenté et testé de bout en bout :
-- Authentification (inscription commerçant + création automatique de sa boutique, connexion, JWT)
+- Authentification (inscription commerçant + création automatique de sa boutique, connexion, JWT,
+  réinitialisation du mot de passe par question de sécurité — voir plus bas)
 - Boutique (informations de la boutique)
 - Produits (catalogue, catégories, recherche, filtre stock faible)
 - Clients (fiche client, segmentation automatique nouveau / régulier / VIP / inactif)
@@ -66,6 +67,16 @@ Implémenté et testé de bout en bout :
   `GET /api/produits/{id}/image` (public, nécessaire pour la boutique publique). Upload
   validé par whitelist d'extension + vérification des magic bytes, 5 Mo max
   (`settings.max_upload_size_mb`).
+- **Réinitialisation du mot de passe (par question de sécurité)** ✅ — aucun service
+  SMS/email configuré pour un code ou un lien de reset classique : chaque compte
+  définit une question de sécurité (liste prédéfinie, `schemas.SECURITY_QUESTIONS`) à
+  l'inscription ; en cas d'oubli, `mot-de-passe-oublie.html` demande le numéro, affiche
+  la question, et permet de choisir un nouveau mot de passe si la réponse correspond
+  (insensible à la casse/espaces). Rate-limité par IP et par numéro ciblé (réponse à
+  faible entropie). Page `mon-compte.html` ajoutée pour changer son mot de passe une
+  fois connecté et définir/modifier sa question de sécurité — nécessaire pour les
+  comptes créés avant cette fonctionnalité et pour les employés (créés par le
+  propriétaire, qui ne peut pas répondre à leur place).
 
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en

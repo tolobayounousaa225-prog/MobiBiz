@@ -86,6 +86,7 @@ class Shop(Base):
     adresse: Mapped[str | None] = mapped_column(String(255), nullable=True)
     commune: Mapped[str | None] = mapped_column(String(120), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    wave_payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     owner: Mapped["User"] = relationship(back_populates="shops")

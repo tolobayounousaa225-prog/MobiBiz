@@ -33,12 +33,37 @@
           <div><label for="s_commune">Commune</label><input type="text" id="s_commune"></div>
         </div>
 
+        <label for="s_wave">Lien de paiement Wave (optionnel)</label>
+        <input type="url" id="s_wave" placeholder="https://pay.wave.com/m/...">
+        <p style="color:var(--ink-soft);font-size:12.5px;margin:4px 0 0">
+          Récupérable dans l'app Wave Business → Paramètres → Lien de paiement. Une fois
+          enregistré, un QR code apparaît ici et sur chaque commande — vos clients le
+          scannent avec l'app Wave pour vous payer.
+        </p>
+
         <div class="form-actions">
           <button type="submit" class="btn">Enregistrer</button>
         </div>
       </form>
+      <div id="waveQrPreview" style="margin-top:18px"></div>
     </div>
   `;
+
+  async function loadWaveQr() {
+    const box = document.getElementById("waveQrPreview");
+    const link = document.getElementById("s_wave").value.trim();
+    if (!link) { box.innerHTML = ""; return; }
+    try {
+      const blob = await api("/api/boutique/wave-qr.png", { isBlob: true });
+      const url = URL.createObjectURL(blob);
+      box.innerHTML = `
+        <label style="margin-top:0">QR code de paiement Wave</label>
+        <img src="${url}" alt="QR code Wave" style="width:180px;height:180px;border:1px solid var(--border);border-radius:8px;padding:8px;background:#fff">
+      `;
+    } catch (err) {
+      box.innerHTML = "";
+    }
+  }
 
   async function load() {
     const shop = await api("/api/boutique");
@@ -48,6 +73,8 @@
     document.getElementById("s_whatsapp").value = shop.whatsapp || "";
     document.getElementById("s_adresse").value = shop.adresse || "";
     document.getElementById("s_commune").value = shop.commune || "";
+    document.getElementById("s_wave").value = shop.wave_payment_link || "";
+    await loadWaveQr();
   }
 
   document.getElementById("shopForm").addEventListener("submit", async (e) => {
@@ -60,10 +87,12 @@
       adresse: document.getElementById("s_adresse").value.trim() || null,
       commune: document.getElementById("s_commune").value.trim() || null,
       logo_url: null,
+      wave_payment_link: document.getElementById("s_wave").value.trim() || null,
     };
     try {
       await api("/api/boutique", { method: "PUT", body: payload });
       toast("Boutique mise à jour", "success");
+      await loadWaveQr();
     } catch (err) { toast(err.message, "error"); }
   });
 

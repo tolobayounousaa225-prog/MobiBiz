@@ -44,6 +44,7 @@ class ShopIn(BaseModel):
     adresse: str | None = None
     commune: str | None = None
     logo_url: str | None = None
+    wave_payment_link: str | None = None
 
 
 class ShopOut(ShopIn):

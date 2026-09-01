@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import models
 from .config import settings
-from .database import Base, engine
+from .migrations import run_startup_migrations
 from .routers import auth, categories, customers, dashboard, orders, products, reports, shops, stock
 
-Base.metadata.create_all(bind=engine)
+run_startup_migrations()
 
 app = FastAPI(title="MobiBiz API", version="0.1.0")
 

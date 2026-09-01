@@ -87,6 +87,7 @@
   let products = [];
   let orders = [];
   let itemRowCount = 0;
+  let shopHasWave = false;
 
   function addItemRow(productId, quantite) {
     itemRowCount += 1;
@@ -243,6 +244,11 @@
       </p>
       ${order.notes ? `<p><strong>Notes :</strong> ${order.notes}</p>` : ""}
 
+      ${shopHasWave ? `
+        <button type="button" class="btn secondary small" id="showWaveQrBtn">Afficher le QR Wave pour encaisser</button>
+        <div id="waveQrBox" style="margin-top:10px"></div>
+      ` : ""}
+
       <label for="detailStatus">Statut de la commande</label>
       <select id="detailStatus" ${nextStatuses.length === 0 ? "disabled" : ""}>
         <option value="${order.statut}">${ORDER_STATUS_LABELS[order.statut][0]} (actuel)</option>
@@ -259,6 +265,19 @@
         <button class="btn" id="saveDetailBtn">Mettre à jour</button>
       </div>
     `;
+
+    if (shopHasWave) {
+      document.getElementById("showWaveQrBtn").addEventListener("click", async (e) => {
+        const box = document.getElementById("waveQrBox");
+        try {
+          const blob = await api("/api/boutique/wave-qr.png", { isBlob: true });
+          const url = URL.createObjectURL(blob);
+          box.innerHTML = `<img src="${url}" alt="QR code Wave" style="width:200px;height:200px;border:1px solid var(--border);border-radius:8px;padding:8px;background:#fff">
+            <p style="color:var(--ink-soft);font-size:13px">Montant à faire payer : <strong>${fmtFCFA(order.total)}</strong></p>`;
+          e.target.classList.add("hidden");
+        } catch (err) { toast(err.message, "error"); }
+      });
+    }
 
     document.getElementById("saveDetailBtn").addEventListener("click", async () => {
       const newStatus = document.getElementById("detailStatus").value;
@@ -296,7 +315,8 @@
 
   (async () => {
     try {
-      await Promise.all([loadProducts(), loadCustomers()]);
+      const [, , shop] = await Promise.all([loadProducts(), loadCustomers(), api("/api/boutique")]);
+      shopHasWave = !!shop.wave_payment_link;
       await loadOrders();
     } catch (err) { toast(err.message, "error"); }
   })();

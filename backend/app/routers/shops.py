@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends
+import io
+
+import qrcode
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -24,3 +28,18 @@ def update_shop(
     db.commit()
     db.refresh(shop)
     return shop
+
+
+@router.get("/wave-qr.png")
+def wave_qr_code(shop: models.Shop = Depends(get_current_shop)):
+    if not shop.wave_payment_link:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucun lien de paiement Wave configuré pour cette boutique",
+        )
+
+    img = qrcode.make(shop.wave_payment_link)
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")

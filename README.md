@@ -76,12 +76,24 @@ prévisualisation.
 - **Base de données** : PostgreSQL managé par Railway (service `Postgres` dans le même
   projet), lié au backend via la variable `DATABASE_URL=${{Postgres.DATABASE_URL}}`
   (réseau privé Railway, pas d'exposition publique).
-- **Frontend** : pas encore déployé. `assets/js/api.js` pointe déjà vers l'URL de
-  production Railway hors localhost ; reste à choisir un hébergement statique (Vercel,
-  Netlify, ou une page statique sur Railway) quand ce sera nécessaire.
+- **Frontend** : déployé sur GitHub Pages → https://tolobayounousaa225-prog.github.io/MobiBiz/
+  — auto-déploiement à chaque push sur `main` qui touche `frontend/**`, via le workflow
+  `.github/workflows/deploy-frontend.yml` (GitHub Actions, source Pages = « GitHub Actions »
+  dans les paramètres du repo). `assets/js/api.js` bascule automatiquement vers l'URL
+  Railway de production dès que l'origine n'est pas `localhost`.
 
-Pour redéployer manuellement depuis la racine du repo : `railway up --service mobibiz-backend`.
-Pour voir les logs : `railway logs --service mobibiz-backend`.
+Pour redéployer manuellement le backend depuis la racine du repo :
+`railway up --service mobibiz-backend`. Logs : `railway logs --service mobibiz-backend`.
+Pour redéclencher le déploiement du frontend sans changement de code : onglet Actions du
+repo GitHub → workflow « Déployer le frontend sur GitHub Pages » → Run workflow.
+
+## Développement local vs production
+
+Le développement local (`py -3 -m venv venv` + `uvicorn --reload` + `http.server`,
+voir plus haut) reste utile pour modifier le code, mais n'est plus nécessaire pour
+utiliser l'application au quotidien : le site sur GitHub Pages parle déjà à l'API de
+production sur Railway. Les serveurs locaux peuvent être arrêtés entre deux sessions
+de développement.
 
 ## Prochaines étapes suggérées
 

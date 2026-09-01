@@ -1,9 +1,12 @@
+from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_user
+from ..plans import TRIAL_DAYS
 from ..rate_limit import enforce_login_rate_limit, enforce_password_reset_rate_limit
 from ..security import (
     create_access_token,
@@ -45,7 +48,10 @@ def register(payload: schemas.RegisterIn, db: Session = Depends(get_db)):
     db.flush()
 
     slug = generate_unique_shop_slug(db, payload.boutique_nom)
-    shop = models.Shop(owner_id=user.id, nom=payload.boutique_nom, slug=slug)
+    shop = models.Shop(
+        owner_id=user.id, nom=payload.boutique_nom, slug=slug,
+        essai_expire_le=date.today() + timedelta(days=TRIAL_DAYS),
+    )
     db.add(shop)
     db.commit()
 

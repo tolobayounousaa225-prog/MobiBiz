@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_shop, require_owner
+from ..plans import plan_limit
 from ..security import hash_password
 
 router = APIRouter(prefix="/api/employes", tags=["employes"], dependencies=[Depends(require_owner)])
@@ -43,6 +44,19 @@ def create_employee(
     existing = db.query(models.User).filter(models.User.telephone == payload.telephone).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ce numéro est déjà utilisé")
+
+    max_employes = plan_limit(shop.abonnement_plan, "max_employes")
+    if max_employes is not None:
+        nombre_actuel = (
+            db.query(models.User)
+            .filter(models.User.shop_id == shop.id, models.User.role == models.UserRole.EMPLOYEE)
+            .count()
+        )
+        if nombre_actuel >= max_employes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Votre plan actuel autorise au maximum {max_employes} employé(s). Passez à un plan supérieur pour en ajouter.",
+            )
 
     employee = models.User(
         nom=payload.nom,

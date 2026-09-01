@@ -184,9 +184,10 @@ class Shop(Base):
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     wave_payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
     boutique_publique_active: Mapped[bool] = mapped_column(Boolean, default=False)
-    abonnement_statut: Mapped[SubscriptionStatus] = mapped_column(Enum(SubscriptionStatus), default=SubscriptionStatus.ACTIF)
+    abonnement_statut: Mapped[SubscriptionStatus] = mapped_column(Enum(SubscriptionStatus), default=SubscriptionStatus.ESSAI)
     abonnement_plan: Mapped[SubscriptionPlan] = mapped_column(Enum(SubscriptionPlan), default=SubscriptionPlan.FREE)
     prochain_paiement_le: Mapped[date_type | None] = mapped_column(Date, nullable=True)
+    essai_expire_le: Mapped[date_type | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     owner: Mapped["User"] = relationship(back_populates="shops", foreign_keys=[owner_id])
@@ -197,6 +198,7 @@ class Shop(Base):
     expenses: Mapped[list["Expense"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     notifications: Mapped[list["Notification"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     abonnement_paiements: Mapped[list["SubscriptionPayment"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+    tickets: Mapped[list["SupportTicket"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
 
 
 class Category(Base):
@@ -374,3 +376,52 @@ class PlatformSettings(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     wave_payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class AuditLog(Base):
+    """Trace de chaque action administrateur (qui a suspendu/réactivé/changé le
+    plan de quelle boutique, quand) — traçabilité une fois qu'on gère plusieurs
+    boutiques et potentiellement plusieurs comptes admin."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    admin_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    action: Mapped[str] = mapped_column(String(100))
+    cible_type: Mapped[str] = mapped_column(String(50))
+    cible_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    admin: Mapped["User"] = relationship()
+
+
+class TicketStatus(str, enum.Enum):
+    OUVERT = "ouvert"
+    RESOLU = "resolu"
+
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    sujet: Mapped[str] = mapped_column(String(200))
+    statut: Mapped[TicketStatus] = mapped_column(Enum(TicketStatus), default=TicketStatus.OUVERT)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    shop: Mapped["Shop"] = relationship(back_populates="tickets")
+    messages: Mapped[list["TicketMessage"]] = relationship(back_populates="ticket", cascade="all, delete-orphan")
+
+
+class TicketMessage(Base):
+    __tablename__ = "ticket_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("support_tickets.id"), index=True)
+    auteur_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    message: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    ticket: Mapped["SupportTicket"] = relationship(back_populates="messages")
+    auteur: Mapped["User"] = relationship()

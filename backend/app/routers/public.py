@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+from ..deps import expire_trial_if_needed
 from ..notifications import notify
 from ..rate_limit import enforce_public_order_rate_limit
 from .orders import _generate_order_number
@@ -16,7 +17,10 @@ def _get_active_public_shop(db: Session, slug: str) -> models.Shop:
         .filter(models.Shop.slug == slug, models.Shop.boutique_publique_active.is_(True))
         .first()
     )
-    if shop is None or shop.abonnement_statut == models.SubscriptionStatus.SUSPENDU:
+    if shop is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Boutique introuvable")
+    expire_trial_if_needed(db, shop)
+    if shop.abonnement_statut == models.SubscriptionStatus.SUSPENDU:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Boutique introuvable")
     return shop
 

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Journal — Administration MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/admin-layout.js"></script>
+<script>
+  renderAdminLayout("admin-journal", "Journal d'audit", "Historique des actions administrateur");
+
+  const ACTION_LABELS = {
+    changement_statut: "Changement de statut",
+    changement_plan: "Changement de plan",
+    paiement_enregistre: "Paiement enregistré",
+    parametres_modifies: "Paramètres modifiés",
+    admin_cree: "Nouvel administrateur créé",
+    ticket_statut: "Statut de ticket modifié",
+  };
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Administrateur</th><th>Action</th><th>Détails</th></tr></thead>
+          <tbody id="journalBody"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  async function load() {
+    const entries = await api("/api/admin/journal");
+    const body = document.getElementById("journalBody");
+    body.innerHTML = entries.length === 0
+      ? `<tr><td colspan="4" class="empty">Aucune action enregistrée</td></tr>`
+      : entries.map((e) => `
+          <tr>
+            <td>${new Date(e.created_at).toLocaleString("fr-FR")}</td>
+            <td>${e.admin_nom}</td>
+            <td>${ACTION_LABELS[e.action] || e.action}</td>
+            <td style="white-space:normal">${e.details || "-"}</td>
+          </tr>
+        `).join("");
+  }
+
+  load().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

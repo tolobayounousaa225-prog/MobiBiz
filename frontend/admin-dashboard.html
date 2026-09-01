@@ -25,6 +25,10 @@
       <div class="kpi"><div class="label">CA total plateforme</div><div class="value orange">—</div></div>
     </div>
     <div class="card">
+      <h2>Évolution (6 derniers mois)</h2>
+      <div id="evolutionChart"></div>
+    </div>
+    <div class="card">
       <h2>Paiements à échéance (5 prochains jours ou en retard)</h2>
       <div class="table-wrap">
         <table>
@@ -53,11 +57,45 @@
 
   const PLAN_LABELS = { free: "Free", starter: "Starter", pro: "Pro", business: "Business", enterprise: "Enterprise" };
 
+  const MOIS_LABELS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+
+  function renderEvolutionChart(data) {
+    const width = 640, height = 220, barGap = 14;
+    const chartTop = 16, chartBottom = 170;
+    const barWidth = (width - barGap * (data.length + 1)) / data.length;
+    const maxCa = Math.max(...data.map((d) => d.chiffre_affaires), 1);
+
+    const bars = data.map((d, i) => {
+      const x = barGap + i * (barWidth + barGap);
+      const barHeight = (d.chiffre_affaires / maxCa) * (chartBottom - chartTop);
+      const y = chartBottom - barHeight;
+      const [year, month] = d.mois.split("-");
+      const label = `${MOIS_LABELS[Number(month) - 1]}`;
+      return `
+        <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" fill="var(--orange)" rx="4"></rect>
+        <text x="${x + barWidth / 2}" y="${chartBottom + 18}" text-anchor="middle" font-size="12" fill="var(--ink-soft)">${label}</text>
+        <text x="${x + barWidth / 2}" y="${y - 6}" text-anchor="middle" font-size="11" fill="var(--ink)">${fmtFCFA(d.chiffre_affaires)}</text>
+        <text x="${x + barWidth / 2}" y="${chartBottom + 34}" text-anchor="middle" font-size="11" fill="var(--ink-soft)">${d.nouvelles_boutiques} bout. / ${d.commandes} cmd.</text>
+      `;
+    }).join("");
+
+    document.getElementById("evolutionChart").innerHTML = `
+      <div style="overflow-x:auto">
+        <svg viewBox="0 0 ${width} ${height}" style="width:100%;max-width:${width}px;height:auto">
+          <line x1="0" y1="${chartBottom}" x2="${width}" y2="${chartBottom}" stroke="var(--border)"></line>
+          ${bars}
+        </svg>
+      </div>
+    `;
+  }
+
   async function load() {
-    const [stats, shops] = await Promise.all([
+    const [stats, shops, evolution] = await Promise.all([
       api("/api/admin/statistiques"),
       api("/api/admin/boutiques"),
+      api("/api/admin/statistiques/evolution?mois=6"),
     ]);
+    renderEvolutionChart(evolution);
 
     const values = document.querySelectorAll("#kpiGrid .value");
     values[0].textContent = stats.boutiques_actives;

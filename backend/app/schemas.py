@@ -12,6 +12,7 @@ from .models import (
     PaiementStatut,
     SubscriptionPlan,
     SubscriptionStatus,
+    TicketStatus,
     UserRole,
 )
 
@@ -105,7 +106,12 @@ class ShopOut(ShopIn):
     abonnement_statut: SubscriptionStatus
     abonnement_plan: SubscriptionPlan
     prochain_paiement_le: date_type | None = None
+    essai_expire_le: date_type | None = None
     created_at: datetime
+
+
+class ShopPlanChangeIn(BaseModel):
+    abonnement_plan: SubscriptionPlan
 
 
 # ---------- Category ----------
@@ -357,6 +363,7 @@ class AdminShopOut(BaseModel):
     abonnement_statut: SubscriptionStatus
     abonnement_plan: SubscriptionPlan
     prochain_paiement_le: str | None = None
+    essai_expire_le: str | None = None
     proprietaire_nom: str
     proprietaire_telephone: str
     nombre_produits: int
@@ -414,3 +421,84 @@ class AdminUserOut(BaseModel):
     actif: bool
     boutique_nom: str | None = None
     created_at: datetime
+
+
+# ---------- Journal d'audit ----------
+class AuditLogOut(BaseModel):
+    id: int
+    admin_nom: str
+    action: str
+    cible_type: str
+    cible_id: int | None = None
+    details: str | None = None
+    created_at: datetime
+
+
+# ---------- Support / tickets ----------
+class TicketCreateIn(BaseModel):
+    sujet: str = Field(min_length=3)
+    message: str = Field(min_length=3)
+
+
+class TicketMessageIn(BaseModel):
+    message: str = Field(min_length=1)
+
+
+class TicketMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    auteur_id: int
+    auteur_nom: str
+    auteur_role: UserRole
+    message: str
+    created_at: datetime
+
+
+class TicketOut(BaseModel):
+    id: int
+    sujet: str
+    statut: TicketStatus
+    boutique_nom: str | None = None
+    created_at: datetime
+    messages: list[TicketMessageOut] = []
+
+
+class TicketStatusIn(BaseModel):
+    statut: TicketStatus
+
+
+# ---------- Comptes admin ----------
+class AdminCreateIn(BaseModel):
+    nom: str
+    prenom: str
+    telephone: str
+    password: str = Field(min_length=6)
+
+
+class AdminAccountOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nom: str
+    prenom: str
+    telephone: str
+    actif: bool
+    created_at: datetime
+
+
+# ---------- Plans ----------
+class PlanOut(BaseModel):
+    id: SubscriptionPlan
+    nom: str
+    prix_mensuel: int | None = None
+    max_produits: int | None = None
+    max_employes: int | None = None
+    boutique_publique: bool
+    avantages: list[str]
+
+
+# ---------- Statistiques d'évolution ----------
+class MonthlyStatOut(BaseModel):
+    mois: str  # "2026-09"
+    nouvelles_boutiques: int
+    commandes: int
+    chiffre_affaires: float

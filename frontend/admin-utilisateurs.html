@@ -22,6 +22,18 @@
   const content = document.getElementById("pageContent");
   content.innerHTML = `
     <div class="card">
+      <h2>Administrateurs de la plateforme</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nom</th><th>Téléphone</th><th>Statut</th><th>Créé le</th></tr></thead>
+          <tbody id="adminsBody"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+      <button class="btn small" id="newAdminBtn" style="margin-top:10px">+ Nouvel administrateur</button>
+    </div>
+
+    <div class="card">
+      <h2>Tous les comptes</h2>
       <div class="toolbar">
         <input type="search" id="searchInput" placeholder="Rechercher par nom ou téléphone…">
       </div>
@@ -33,6 +45,31 @@
       </div>
     </div>
   `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="adminModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeAdminModal">&times;</button>
+        <h2>Nouvel administrateur</h2>
+        <p style="color:var(--ink-soft);font-size:13px">
+          Accès total à la supervision de la plateforme — à réserver à des personnes de confiance.
+        </p>
+        <form id="adminForm">
+          <div class="field-row">
+            <div><label for="a_prenom">Prénom</label><input type="text" id="a_prenom" required></div>
+            <div><label for="a_nom">Nom</label><input type="text" id="a_nom" required></div>
+          </div>
+          <label for="a_telephone">Téléphone</label>
+          <input type="tel" id="a_telephone" required>
+          <label for="a_password">Mot de passe</label>
+          <input type="password" id="a_password" required minlength="6" placeholder="6 caractères minimum">
+          <div class="form-actions">
+            <button type="submit" class="btn">Créer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `);
 
   let users = [];
 
@@ -58,12 +95,49 @@
 
   document.getElementById("searchInput").addEventListener("input", renderUsers);
 
+  async function loadAdmins() {
+    const admins = await api("/api/admin/administrateurs");
+    document.getElementById("adminsBody").innerHTML = admins.map((a) => `
+      <tr>
+        <td>${a.prenom} ${a.nom}</td>
+        <td>${a.telephone}</td>
+        <td>${a.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Désactivé</span>`}</td>
+        <td>${fmtDate(a.created_at)}</td>
+      </tr>
+    `).join("");
+  }
+
+  document.getElementById("newAdminBtn").addEventListener("click", () => {
+    document.getElementById("adminForm").reset();
+    document.getElementById("adminModalBackdrop").classList.remove("hidden");
+  });
+  document.getElementById("closeAdminModal").addEventListener("click", () =>
+    document.getElementById("adminModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("adminForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/admin/administrateurs", {
+        method: "POST",
+        body: {
+          prenom: document.getElementById("a_prenom").value.trim(),
+          nom: document.getElementById("a_nom").value.trim(),
+          telephone: document.getElementById("a_telephone").value.trim(),
+          password: document.getElementById("a_password").value,
+        },
+      });
+      document.getElementById("adminModalBackdrop").classList.add("hidden");
+      await Promise.all([loadAdmins(), load()]);
+      toast("Administrateur créé", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
   async function load() {
     users = await api("/api/admin/utilisateurs");
     renderUsers();
   }
 
-  load().catch((err) => toast(err.message, "error"));
+  Promise.all([load(), loadAdmins()]).catch((err) => toast(err.message, "error"));
 </script>
 </body>
 </html>

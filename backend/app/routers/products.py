@@ -9,10 +9,23 @@ from sqlalchemy.orm import Session
 from .. import models, schemas, storage
 from ..database import get_db
 from ..deps import get_current_shop, require_any_module, require_module
+from ..plans import plan_limit
 
 router = APIRouter(prefix="/api/produits", tags=["produits"])
 
 IMPORT_COLUMNS = ["nom", "reference", "categorie", "prix_achat", "prix_vente", "stock", "seuil_alerte"]
+
+
+def _check_product_limit(db: Session, shop: models.Shop, a_ajouter: int = 1) -> None:
+    max_produits = plan_limit(shop.abonnement_plan, "max_produits")
+    if max_produits is None:
+        return
+    nombre_actuel = db.query(models.Product).filter(models.Product.shop_id == shop.id).count()
+    if nombre_actuel + a_ajouter > max_produits:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Votre plan actuel autorise au maximum {max_produits} produits. Passez à un plan supérieur pour en ajouter.",
+        )
 
 
 def _get_owned_product(db: Session, shop: models.Shop, product_id: int) -> models.Product:
@@ -52,6 +65,7 @@ def create_product(
     _: models.User = Depends(require_module("produits")),
     db: Session = Depends(get_db),
 ):
+    _check_product_limit(db, shop)
     if payload.category_id is not None:
         category = (
             db.query(models.Category)
@@ -137,11 +151,17 @@ async def import_products(
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Fichier illisible")
 
+    max_produits = plan_limit(shop.abonnement_plan, "max_produits")
+    nombre_actuel = db.query(models.Product).filter(models.Product.shop_id == shop.id).count()
+
     category_cache: dict[str, models.Category] = {}
     crees = 0
     erreurs: list[dict] = []
 
     for i, row in enumerate(rows, start=2):  # ligne 1 = en-têtes
+        if max_produits is not None and nombre_actuel + crees >= max_produits:
+            erreurs.append({"ligne": i, "message": f"Limite du plan atteinte ({max_produits} produits max) — ligne ignorée"})
+            continue
         nom = str(row.get("nom") or "").strip()
         if not nom:
             erreurs.append({"ligne": i, "message": "Nom manquant"})

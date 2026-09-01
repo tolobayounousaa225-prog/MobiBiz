@@ -82,6 +82,7 @@ def run_startup_migrations() -> None:
         "abonnement_statut": "VARCHAR(20) DEFAULT 'ACTIF'",
         "abonnement_plan": "VARCHAR(20) DEFAULT 'FREE'",
         "prochain_paiement_le": "DATE",
+        "essai_expire_le": "DATE",
     })
 
     if inspector.has_table("users"):

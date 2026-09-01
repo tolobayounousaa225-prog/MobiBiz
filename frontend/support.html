@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("support", "Support", "Contactez l'équipe MobiBiz pour toute question ou problème");
+
+  document.getElementById("topbarActions").insertAdjacentHTML("afterbegin", `<button class="btn" id="newTicketBtn">+ Nouveau ticket</button>`);
+
+  const STATUT_LABELS = { ouvert: ["Ouvert", "amber"], resolu: ["Résolu", "green"] };
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Sujet</th><th>Statut</th><th>Date</th><th></th></tr></thead>
+          <tbody id="ticketsBody"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="newTicketBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeNewTicket">&times;</button>
+        <h2>Nouveau ticket</h2>
+        <form id="newTicketForm">
+          <label for="t_sujet">Sujet</label>
+          <input type="text" id="t_sujet" required minlength="3">
+          <label for="t_message">Message</label>
+          <textarea id="t_message" rows="4" required minlength="3"></textarea>
+          <div class="form-actions">
+            <button type="submit" class="btn">Envoyer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="ticketModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeTicketModal">&times;</button>
+        <h2 id="ticketModalTitle">Ticket</h2>
+        <div id="ticketMessages" style="margin-bottom:14px"></div>
+        <div id="replyBox">
+          <label for="replyMessage">Répondre</label>
+          <textarea id="replyMessage" rows="2"></textarea>
+          <div class="form-actions">
+            <button class="btn" id="sendReplyBtn">Envoyer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `);
+
+  let tickets = [];
+  let currentTicketId = null;
+
+  function renderTickets() {
+    const body = document.getElementById("ticketsBody");
+    body.innerHTML = tickets.length === 0
+      ? `<tr><td colspan="4" class="empty">Aucun ticket envoyé pour l'instant</td></tr>`
+      : tickets.map((t) => `
+          <tr>
+            <td>${t.sujet}</td>
+            <td>${badge(STATUT_LABELS, t.statut)}</td>
+            <td>${fmtDate(t.created_at)}</td>
+            <td><button class="btn secondary small" data-open="${t.id}">Ouvrir</button></td>
+          </tr>
+        `).join("");
+    body.querySelectorAll("[data-open]").forEach((btn) => {
+      btn.addEventListener("click", () => openTicket(tickets.find((t) => t.id === Number(btn.dataset.open))));
+    });
+  }
+
+  function openTicket(ticket) {
+    currentTicketId = ticket.id;
+    document.getElementById("ticketModalTitle").textContent = ticket.sujet;
+    document.getElementById("ticketMessages").innerHTML = ticket.messages.map((m) => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:12.5px;color:var(--ink-soft)">${m.auteur_role === "admin" ? "Support MobiBiz" : m.auteur_nom} — ${new Date(m.created_at).toLocaleString("fr-FR")}</div>
+        <div style="margin-top:2px">${m.message}</div>
+      </div>
+    `).join("");
+    document.getElementById("replyMessage").value = "";
+    document.getElementById("replyBox").style.display = ticket.statut === "resolu" ? "none" : "block";
+    document.getElementById("ticketModalBackdrop").classList.remove("hidden");
+  }
+
+  document.getElementById("newTicketBtn").addEventListener("click", () => {
+    document.getElementById("newTicketForm").reset();
+    document.getElementById("newTicketBackdrop").classList.remove("hidden");
+  });
+  document.getElementById("closeNewTicket").addEventListener("click", () =>
+    document.getElementById("newTicketBackdrop").classList.add("hidden"));
+  document.getElementById("closeTicketModal").addEventListener("click", () =>
+    document.getElementById("ticketModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("newTicketForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/support/tickets", {
+        method: "POST",
+        body: {
+          sujet: document.getElementById("t_sujet").value.trim(),
+          message: document.getElementById("t_message").value.trim(),
+        },
+      });
+      document.getElementById("newTicketBackdrop").classList.add("hidden");
+      await load();
+      toast("Ticket envoyé", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("sendReplyBtn").addEventListener("click", async () => {
+    const message = document.getElementById("replyMessage").value.trim();
+    if (!message) return;
+    try {
+      const updated = await api(`/api/support/tickets/${currentTicketId}/messages`, { method: "POST", body: { message } });
+      tickets = tickets.map((t) => (t.id === updated.id ? updated : t));
+      openTicket(updated);
+      renderTickets();
+      toast("Message envoyé", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  async function load() {
+    tickets = await api("/api/support/tickets");
+    renderTickets();
+  }
+
+  load().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

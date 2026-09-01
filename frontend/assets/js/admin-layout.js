@@ -1,7 +1,9 @@
 const ADMIN_NAV_ITEMS = [
   { href: "admin-dashboard.html", label: "Tableau de bord", key: "admin-dashboard" },
   { href: "admin-boutiques.html", label: "Boutiques", key: "admin-boutiques" },
+  { href: "admin-tickets.html", label: "Support", key: "admin-tickets" },
   { href: "admin-utilisateurs.html", label: "Utilisateurs", key: "admin-utilisateurs" },
+  { href: "admin-journal.html", label: "Journal", key: "admin-journal" },
   { href: "admin-parametres.html", label: "Paramètres", key: "admin-parametres" },
 ];
 

@@ -5,11 +5,28 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_user
+from ..plans import PLAN_FEATURES
 
 router = APIRouter(prefix="/api/abonnement", tags=["abonnement"])
+
+
+@router.get("/plans", response_model=list[schemas.PlanOut])
+def list_plans():
+    return [
+        schemas.PlanOut(
+            id=plan_id,
+            nom=data["nom"],
+            prix_mensuel=data["prix_mensuel"],
+            max_produits=data["max_produits"],
+            max_employes=data["max_employes"],
+            boutique_publique=data["boutique_publique"],
+            avantages=data["avantages"],
+        )
+        for plan_id, data in PLAN_FEATURES.items()
+    ]
 
 
 @router.get("/wave-qr.png")

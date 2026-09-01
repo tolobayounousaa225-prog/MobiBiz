@@ -24,6 +24,8 @@ const NAV_ITEMS = [
   { href: "marketing.html", label: "Marketing", key: "marketing", show: (u) => u.role === "owner" },
   { href: "rapports.html", label: "Rapports", key: "rapports", show: (u) => u.role === "owner" || hasAccess(u, "produits") || hasAccess(u, "finance") },
   { href: "employes.html", label: "Employés", key: "employes", show: (u) => u.role === "owner" },
+  { href: "plans.html", label: "Mon abonnement", key: "plans", show: (u) => u.role === "owner" },
+  { href: "support.html", label: "Support", key: "support", show: () => true },
   { href: "boutique.html", label: "Ma boutique", key: "boutique", show: (u) => u.role === "owner" },
 ];
 

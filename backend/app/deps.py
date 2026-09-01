@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -7,6 +9,20 @@ from .database import get_db
 from .security import decode_access_token
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def expire_trial_if_needed(db: Session, shop: models.Shop) -> None:
+    """Vérification paresseuse (pas de tâche planifiée) : si l'essai gratuit est
+    expiré, bascule la boutique en suspendu au premier accès qui suit
+    l'échéance. Simple et robuste — pas besoin de garder un processus en
+    arrière-plan actif en continu pour ça."""
+    if (
+        shop.abonnement_statut == models.SubscriptionStatus.ESSAI
+        and shop.essai_expire_le is not None
+        and shop.essai_expire_le < date.today()
+    ):
+        shop.abonnement_statut = models.SubscriptionStatus.SUSPENDU
+        db.commit()
 
 
 def get_current_user(
@@ -39,6 +55,7 @@ def get_current_shop(
         shop = db.query(models.Shop).filter(models.Shop.owner_id == current_user.id).first()
     if shop is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucune boutique associée à ce compte")
+    expire_trial_if_needed(db, shop)
     if shop.abonnement_statut == models.SubscriptionStatus.SUSPENDU:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,

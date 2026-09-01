@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon abonnement — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .plan-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .plan-card.current { border-color: var(--orange); border-width: 2px; }
+  .plan-card .plan-name { font-size: 17px; font-weight: 700; }
+  .plan-card .plan-price { font-size: 22px; font-weight: 700; color: var(--orange-dark); margin: 8px 0 14px; }
+  .plan-card .plan-price span { font-size: 12.5px; font-weight: 400; color: var(--ink-soft); }
+  .plan-card ul { list-style: none; padding: 0; margin: 0 0 16px; flex: 1; }
+  .plan-card li { font-size: 13.5px; padding: 5px 0; color: var(--ink-soft); }
+  .plan-card li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+</style>
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("plans", "Mon abonnement", "Choisissez le plan adapté à votre activité");
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card" id="statusCard"></div>
+    <div class="plans-grid" id="plansGrid"></div>
+  `;
+
+  let plans = [];
+  let currentShop = null;
+
+  function renderStatus() {
+    const STATUS_LABELS = { essai: ["Essai", "amber"], actif: ["Actif", "green"], suspendu: ["Suspendu", "red"] };
+    document.getElementById("statusCard").innerHTML = `
+      <p style="margin:0">
+        Statut : ${badge(STATUS_LABELS, currentShop.abonnement_statut)}
+        ${currentShop.abonnement_statut === "essai" && currentShop.essai_expire_le
+          ? `<span style="color:var(--ink-soft);font-size:13px"> — essai jusqu'au ${fmtDate(currentShop.essai_expire_le)}</span>`
+          : ""}
+        ${currentShop.prochain_paiement_le
+          ? `<span style="color:var(--ink-soft);font-size:13px"> — prochaine échéance : ${paymentDueBadge(currentShop.prochain_paiement_le)}</span>`
+          : ""}
+      </p>
+    `;
+  }
+
+  function renderPlans() {
+    document.getElementById("plansGrid").innerHTML = plans.map((p) => {
+      const isCurrent = p.id === currentShop.abonnement_plan;
+      return `
+        <div class="plan-card ${isCurrent ? "current" : ""}">
+          <div class="plan-name">${p.nom}</div>
+          <div class="plan-price">${p.prix_mensuel == null ? "Sur devis" : `${fmtFCFA(p.prix_mensuel)} <span>/mois</span>`}</div>
+          <ul>${p.avantages.map((a) => `<li>${a}</li>`).join("")}</ul>
+          ${isCurrent
+            ? `<button class="btn secondary" disabled>Plan actuel</button>`
+            : `<button class="btn" data-subscribe="${p.id}">Souscrire</button>`}
+        </div>
+      `;
+    }).join("");
+
+    document.querySelectorAll("[data-subscribe]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const planId = btn.dataset.subscribe;
+        if (!confirm(`Passer au plan ${planId} ? Le changement est immédiat ; pensez à régler le paiement correspondant via le QR Wave sur la page Ma boutique.`)) return;
+        try {
+          currentShop = await api("/api/boutique/abonnement", { method: "PUT", body: { abonnement_plan: planId } });
+          renderStatus();
+          renderPlans();
+          toast("Plan mis à jour", "success");
+        } catch (err) { toast(err.message, "error"); }
+      });
+    });
+  }
+
+  async function load() {
+    [plans, currentShop] = await Promise.all([
+      api("/api/abonnement/plans"),
+      api("/api/boutique"),
+    ]);
+    renderStatus();
+    renderPlans();
+  }
+
+  load().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

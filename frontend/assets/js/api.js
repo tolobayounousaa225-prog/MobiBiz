@@ -34,18 +34,21 @@ async function api(path, { method = "GET", body, isBlob = false } = {}) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  if (res.status === 401) {
-    Auth.clear();
-    window.location.href = "index.html";
-    throw new Error("Non authentifié");
-  }
-
   if (!res.ok) {
     let detail = "Une erreur est survenue";
     try {
       const data = await res.json();
       detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
     } catch (_) { /* ignore */ }
+
+    // Un 401 sur un appel authentifié (token envoyé mais rejeté) veut dire
+    // session expirée : on déconnecte. Un 401 sans token (ex: mauvais mot de
+    // passe sur /auth/login) est une erreur normale à afficher, pas une
+    // session expirée — ne pas rediriger dans ce cas.
+    if (res.status === 401 && token) {
+      Auth.clear();
+      window.location.href = "index.html";
+    }
     throw new Error(detail);
   }
 

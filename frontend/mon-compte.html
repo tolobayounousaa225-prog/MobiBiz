@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon compte — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("mon-compte", "Mon compte", "Mot de passe et question de sécurité");
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card" style="max-width:480px">
+      <h2>Question de sécurité</h2>
+      <p style="color:var(--ink-soft);font-size:13px;margin-top:0" id="securityStatus"></p>
+      <form id="securityForm">
+        <label for="s_question">Question</label>
+        <select id="s_question"></select>
+        <label for="s_answer">Réponse</label>
+        <input type="text" id="s_answer" required minlength="2" placeholder="Nouvelle réponse">
+        <div class="form-actions">
+          <button type="submit" class="btn">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card" style="max-width:480px">
+      <h2>Changer mon mot de passe</h2>
+      <form id="passwordForm">
+        <label for="p_ancien">Mot de passe actuel</label>
+        <input type="password" id="p_ancien" required>
+        <label for="p_nouveau">Nouveau mot de passe</label>
+        <input type="password" id="p_nouveau" required minlength="6" placeholder="6 caractères minimum">
+        <div class="form-actions">
+          <button type="submit" class="btn">Changer le mot de passe</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  async function loadSecurityQuestions() {
+    const { questions } = await api("/api/auth/questions-securite");
+    document.getElementById("s_question").innerHTML = questions.map((q) => `<option value="${q}">${q}</option>`).join("");
+  }
+
+  async function loadStatus() {
+    const user = await api("/api/auth/me");
+    document.getElementById("securityStatus").textContent = user.has_security_question
+      ? "Une question de sécurité est déjà configurée — vous pouvez la modifier ci-dessous."
+      : "Aucune question configurée pour l'instant : sans elle, vous ne pourrez pas réinitialiser votre mot de passe en cas d'oubli.";
+  }
+
+  document.getElementById("securityForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/auth/question-securite", {
+        method: "PUT",
+        body: {
+          security_question: document.getElementById("s_question").value,
+          security_answer: document.getElementById("s_answer").value.trim(),
+        },
+      });
+      document.getElementById("s_answer").value = "";
+      await loadStatus();
+      toast("Question de sécurité enregistrée", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("passwordForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/auth/mot-de-passe", {
+        method: "PUT",
+        body: {
+          ancien_mot_de_passe: document.getElementById("p_ancien").value,
+          nouveau_mot_de_passe: document.getElementById("p_nouveau").value,
+        },
+      });
+      document.getElementById("passwordForm").reset();
+      toast("Mot de passe changé", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  Promise.all([loadSecurityQuestions(), loadStatus()]).catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

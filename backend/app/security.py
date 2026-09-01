@@ -17,6 +17,23 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
+def _normalize_answer(answer: str) -> str:
+    """Insensible à la casse et aux espaces superflus : un utilisateur ne se
+    souvient pas forcément d'avoir écrit "Paris" plutôt que "paris "."""
+    return answer.strip().lower()
+
+
+def hash_security_answer(answer: str) -> str:
+    return bcrypt.hashpw(_normalize_answer(answer).encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_security_answer(answer: str, answer_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(_normalize_answer(answer).encode("utf-8"), answer_hash.encode("utf-8"))
+    except ValueError:
+        return False
+
+
 def create_access_token(subject: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {"sub": subject, "exp": expire}

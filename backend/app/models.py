@@ -131,11 +131,21 @@ class User(Base):
     # Uniquement pour role == EMPLOYEE : boutique et rôle métier de l'employé.
     shop_id: Mapped[int | None] = mapped_column(ForeignKey("shops.id"), nullable=True, index=True)
     employee_role: Mapped[EmployeeRole | None] = mapped_column(Enum(EmployeeRole), nullable=True)
+    # Permet la réinitialisation du mot de passe par l'utilisateur lui-même sans
+    # SMS/email (aucun service tiers configuré) — nullable car absent pour les
+    # comptes créés avant l'introduction de cette fonctionnalité, ou pour un
+    # employé qui ne l'a pas encore définie depuis son premier login.
+    security_question: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    security_answer_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     shops: Mapped[list["Shop"]] = relationship(
         back_populates="owner", cascade="all, delete-orphan", foreign_keys="Shop.owner_id"
     )
+
+    @property
+    def has_security_question(self) -> bool:
+        return bool(self.security_question and self.security_answer_hash)
 
     def has_module_access(self, module: str) -> bool:
         if self.role == UserRole.OWNER:

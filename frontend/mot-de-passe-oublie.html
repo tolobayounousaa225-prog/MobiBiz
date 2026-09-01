@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mot de passe oublié — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="brand">Mobi<span>Biz</span></div>
+    <p class="tagline">Réinitialiser votre mot de passe</p>
+
+    <form id="phoneForm">
+      <label for="telephone">Numéro de téléphone</label>
+      <input type="tel" id="telephone" required placeholder="07 00 00 00 01">
+
+      <div class="error-msg" id="phoneError"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn" style="width:100%" id="phoneSubmitBtn">Continuer</button>
+      </div>
+    </form>
+
+    <form id="resetForm" class="hidden">
+      <label id="questionLabel" style="font-weight:700;color:var(--ink)"></label>
+      <input type="text" id="reponse" required placeholder="Votre réponse">
+
+      <label for="nouveau_mot_de_passe">Nouveau mot de passe</label>
+      <input type="password" id="nouveau_mot_de_passe" required minlength="6" placeholder="6 caractères minimum">
+
+      <div class="error-msg" id="resetError"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn" style="width:100%" id="resetSubmitBtn">Réinitialiser</button>
+      </div>
+    </form>
+
+    <div id="successMsg" class="hidden" style="text-align:center;padding:10px 0;color:var(--green);font-weight:600">
+      ✅ Mot de passe réinitialisé ! Vous pouvez vous connecter.
+    </div>
+
+    <div class="switch-link">
+      <a href="index.html">Retour à la connexion</a>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/api.js"></script>
+<script>
+  if (Auth.getToken()) window.location.href = "dashboard.html";
+
+  let telephone = "";
+
+  document.getElementById("phoneForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorMsg = document.getElementById("phoneError");
+    const btn = document.getElementById("phoneSubmitBtn");
+    errorMsg.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Vérification…";
+
+    try {
+      telephone = document.getElementById("telephone").value.trim();
+      const { question } = await api("/api/auth/mot-de-passe-oublie/question", {
+        method: "POST",
+        body: { telephone },
+      });
+      document.getElementById("questionLabel").textContent = question;
+      document.getElementById("phoneForm").classList.add("hidden");
+      document.getElementById("resetForm").classList.remove("hidden");
+    } catch (err) {
+      errorMsg.textContent = err.message;
+      errorMsg.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Continuer";
+    }
+  });
+
+  document.getElementById("resetForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorMsg = document.getElementById("resetError");
+    const btn = document.getElementById("resetSubmitBtn");
+    errorMsg.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Réinitialisation…";
+
+    try {
+      await api("/api/auth/mot-de-passe-oublie/reinitialiser", {
+        method: "POST",
+        body: {
+          telephone,
+          reponse: document.getElementById("reponse").value.trim(),
+          nouveau_mot_de_passe: document.getElementById("nouveau_mot_de_passe").value,
+        },
+      });
+      document.getElementById("resetForm").classList.add("hidden");
+      document.getElementById("successMsg").classList.remove("hidden");
+    } catch (err) {
+      errorMsg.textContent = err.message;
+      errorMsg.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Réinitialiser";
+    }
+  });
+</script>
+</body>
+</html>

@@ -4,6 +4,16 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from .models import DeliveryMode, EmployeeRole, ExpenseCategory, NotificationType, OrderStatus, PaiementStatut, UserRole
 
+# Questions de sécurité prédéfinies (pas de champ libre, pour éviter des
+# questions/réponses trop faibles ou triviales à deviner).
+SECURITY_QUESTIONS = [
+    "Quel est le nom de votre premier animal de compagnie ?",
+    "Quel est le nom de votre ville natale ?",
+    "Quel est le prénom de votre mère ?",
+    "Quel est le nom de votre école primaire ?",
+    "Quel est votre plat préféré ?",
+]
+
 
 # ---------- Auth ----------
 class RegisterIn(BaseModel):
@@ -13,6 +23,8 @@ class RegisterIn(BaseModel):
     email: EmailStr | None = None
     password: str = Field(min_length=6)
     boutique_nom: str
+    security_question: str
+    security_answer: str = Field(min_length=2)
 
 
 class LoginIn(BaseModel):
@@ -34,6 +46,31 @@ class UserOut(BaseModel):
     email: EmailStr | None = None
     role: UserRole
     employee_role: EmployeeRole | None = None
+    has_security_question: bool = False
+
+
+class SecurityQuestionUpdateIn(BaseModel):
+    security_question: str
+    security_answer: str = Field(min_length=2)
+
+
+class PasswordChangeIn(BaseModel):
+    ancien_mot_de_passe: str
+    nouveau_mot_de_passe: str = Field(min_length=6)
+
+
+class ForgotPasswordQuestionIn(BaseModel):
+    telephone: str
+
+
+class ForgotPasswordQuestionOut(BaseModel):
+    question: str
+
+
+class ForgotPasswordResetIn(BaseModel):
+    telephone: str
+    reponse: str
+    nouveau_mot_de_passe: str = Field(min_length=6)
 
 
 # ---------- Shop ----------

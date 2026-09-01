@@ -36,6 +36,15 @@
       <label for="password">Mot de passe</label>
       <input type="password" id="password" required minlength="6" placeholder="6 caractères minimum">
 
+      <label for="security_question">Question de sécurité</label>
+      <select id="security_question" required></select>
+      <p style="color:var(--ink-soft);font-size:12.5px;margin:4px 0 0">
+        Sert à réinitialiser votre mot de passe en cas d'oubli, sans email ni SMS.
+      </p>
+
+      <label for="security_answer">Votre réponse</label>
+      <input type="text" id="security_answer" required minlength="2">
+
       <div class="error-msg" id="errorMsg"></div>
 
       <div class="form-actions">
@@ -52,6 +61,11 @@
 <script src="assets/js/api.js"></script>
 <script>
   if (Auth.getToken()) window.location.href = "dashboard.html";
+
+  api("/api/auth/questions-securite").then(({ questions }) => {
+    document.getElementById("security_question").innerHTML =
+      questions.map((q) => `<option value="${q}">${q}</option>`).join("");
+  }).catch(() => {});
 
   document.getElementById("registerForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -71,6 +85,8 @@
           email: document.getElementById("email").value.trim() || null,
           boutique_nom: document.getElementById("boutique_nom").value.trim(),
           password: document.getElementById("password").value,
+          security_question: document.getElementById("security_question").value,
+          security_answer: document.getElementById("security_answer").value.trim(),
         },
       });
       Auth.setToken(data.access_token);

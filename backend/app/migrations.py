@@ -89,6 +89,11 @@ def run_startup_migrations() -> None:
                 conn.execute(text("ALTER TABLE users ADD COLUMN employee_role VARCHAR(20)"))
             logger.info("Colonne employee_role ajoutée à users.")
 
+    _add_columns_if_missing(inspector, "users", {
+        "security_question": "VARCHAR(255)",
+        "security_answer_hash": "VARCHAR(255)",
+    })
+
     # UserRole.EMPLOYEE a été ajouté après la création initiale de la table users
     # (V1 n'avait que ADMIN/OWNER) — le type ENUM Postgres doit être mis à jour
     # explicitement, sinon toute tentative de créer un employé échoue en

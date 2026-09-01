@@ -23,6 +23,18 @@ def enforce_login_rate_limit(request: Request) -> None:
              message="Trop de tentatives de connexion. Réessayez plus tard.")
 
 
+def enforce_password_reset_rate_limit(request: Request, telephone: str) -> None:
+    """La réponse à une question de sécurité a beaucoup moins d'entropie qu'un
+    mot de passe — limite stricte à la fois par IP (empêche de sonder beaucoup
+    de numéros rapidement) et par numéro ciblé (empêche de bourrer les réponses
+    possibles sur un seul compte depuis plusieurs IP)."""
+    client_ip = request.client.host if request.client else "unknown"
+    _enforce("password_reset_ip", client_ip, max_attempts=10, window_seconds=900,
+             message="Trop de tentatives. Réessayez plus tard.")
+    _enforce("password_reset_phone", telephone, max_attempts=5, window_seconds=900,
+             message="Trop de tentatives pour ce numéro. Réessayez plus tard.")
+
+
 def enforce_public_order_rate_limit(request: Request) -> None:
     """Anti-spam sur la création de commande publique (aucune authentification,
     donc n'importe qui peut appeler cette route et faire décrémenter un vrai

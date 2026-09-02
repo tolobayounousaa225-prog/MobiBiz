@@ -15,6 +15,15 @@
 
 * { box-sizing: border-box; }
 
+/* Utilitaire générique manquant jusqu'ici : seules deux combinaisons scopées
+   (.modal-backdrop.hidden, .nav-badge.hidden) masquaient réellement quelque
+   chose — tout élément avec juste class="hidden" (dropdowns de notifications,
+   boutons "Supprimer" en mode création, sections dépliables...) n'avait jamais
+   été visuellement masqué, malgré la classe bien posée/retirée en JS. Certains
+   éléments combinent aussi class="hidden" avec un style inline display:...,
+   qui l'emporterait sur une règle sans !important. */
+.hidden { display: none !important; }
+
 body {
   margin: 0;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;

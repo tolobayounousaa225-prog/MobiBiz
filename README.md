@@ -271,6 +271,38 @@ de mise en page est partagé et le rendu peut devenir incorrect silencieusement.
   planches 58×30mm — un logo y prendrait trop de place) et le reçu de paiement
   d'abonnement (émis par MobiBiz, pas par la boutique, donc pas sa marque).
 
+## Bug corrigé — classe `.hidden` sans effet (2026-09-02)
+
+Signalé par l'utilisateur : la cloche de notifications de l'espace admin
+s'ouvrait et ne se refermait jamais, bloquant la vue sur le reste de la page.
+Cause racine bien plus large que ce seul symptôme : `assets/css/style.css` ne
+définissait **aucune règle générique `.hidden { display: none }`** — seules deux
+combinaisons scopées existaient (`.modal-backdrop.hidden`, `.nav-badge.hidden`).
+Tout élément utilisant juste `class="hidden"` (les deux dropdowns de
+notifications boutique **et** admin, plusieurs boutons "Supprimer" affichés à
+tort en mode création, la barre d'actions groupées `admin-boutiques.html`, les
+sections variantes/galerie de `produits.html`, le formulaire de réinitialisation
+de mot de passe...) n'a en réalité **jamais été masqué visuellement**, malgré la
+classe correctement posée/retirée côté JS — un bug resté invisible dans tous mes
+tests précédents car je vérifiais `classList.contains("hidden")` (l'état JS) sans
+toujours confirmer le rendu visuel réel (`getComputedStyle().display`).
+
+Corrigé par une seule règle ajoutée en tête de `style.css` :
+```css
+.hidden { display: none !important; }
+```
+Le `!important` est nécessaire : plusieurs éléments combinent `class="hidden"`
+avec un style inline `style="display:flex/..."`, qui l'emporterait sinon sur
+n'importe quelle règle de feuille de style classique. Vérifié que le retrait de
+la classe restaure bien le `display` inline d'origine (`flex`, etc.) une fois
+l'élément censé redevenir visible — le correctif ne casse aucun affichage
+existant, il corrige uniquement les masquages qui ne fonctionnaient pas.
+
+**Leçon pour la suite** : ne jamais valider un état "masqué" uniquement via
+`classList.contains("hidden")` — toujours confirmer aussi
+`getComputedStyle(el).display` (ou une capture d'écran) au moins une fois par
+nouveau pattern d'affichage/masquage introduit.
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

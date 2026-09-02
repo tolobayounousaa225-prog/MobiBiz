@@ -25,11 +25,11 @@
       <h2>Administrateurs de la plateforme</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nom</th><th>Téléphone</th><th>Statut</th><th>Créé le</th></tr></thead>
-          <tbody id="adminsBody"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+          <thead><tr><th>Nom</th><th>Téléphone</th><th>Rôle admin</th><th>Statut</th><th>Créé le</th></tr></thead>
+          <tbody id="adminsBody"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
         </table>
       </div>
-      <button class="btn small" id="newAdminBtn" style="margin-top:10px">+ Nouvel administrateur</button>
+      <button class="btn small hidden" id="newAdminBtn" style="margin-top:10px">+ Nouvel administrateur</button>
     </div>
 
     <div class="card">
@@ -63,6 +63,11 @@
           <input type="tel" id="a_telephone" required>
           <label for="a_password">Mot de passe</label>
           <input type="password" id="a_password" required minlength="6" placeholder="6 caractères minimum">
+          <label for="a_role">Rôle</label>
+          <select id="a_role">
+            <option value="support">Support (tickets et consultation uniquement)</option>
+            <option value="super">Complet (suspension, plans, paramètres, création d'admins)</option>
+          </select>
           <div class="form-actions">
             <button type="submit" class="btn">Créer</button>
           </div>
@@ -95,12 +100,15 @@
 
   document.getElementById("searchInput").addEventListener("input", renderUsers);
 
+  const ADMIN_ROLE_LABELS = { super: ["Complet", "orange"], support: ["Support", "gray"] };
+
   async function loadAdmins() {
     const admins = await api("/api/admin/administrateurs");
     document.getElementById("adminsBody").innerHTML = admins.map((a) => `
       <tr>
         <td>${a.prenom} ${a.nom}</td>
         <td>${a.telephone}</td>
+        <td>${a.admin_role ? badge(ADMIN_ROLE_LABELS, a.admin_role) : "-"}</td>
         <td>${a.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Désactivé</span>`}</td>
         <td>${fmtDate(a.created_at)}</td>
       </tr>
@@ -124,6 +132,7 @@
           nom: document.getElementById("a_nom").value.trim(),
           telephone: document.getElementById("a_telephone").value.trim(),
           password: document.getElementById("a_password").value,
+          admin_role: document.getElementById("a_role").value,
         },
       });
       document.getElementById("adminModalBackdrop").classList.add("hidden");
@@ -137,7 +146,13 @@
     renderUsers();
   }
 
-  Promise.all([load(), loadAdmins()]).catch((err) => toast(err.message, "error"));
+  (async () => {
+    try {
+      const me = await api("/api/auth/me");
+      document.getElementById("newAdminBtn").classList.toggle("hidden", me.admin_role !== "super");
+      await Promise.all([load(), loadAdmins()]);
+    } catch (err) { toast(err.message, "error"); }
+  })();
 </script>
 </body>
 </html>

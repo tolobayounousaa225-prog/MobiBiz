@@ -1,14 +1,15 @@
 from datetime import date as date_type
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..audit import log_admin_action
 from ..database import get_db
-from ..deps import require_admin
-from ..plans import PAYMENT_VALIDITY_DAYS
+from ..deps import require_admin, require_super_admin
+from ..plans import PAYMENT_VALIDITY_DAYS, PLAN_FEATURES
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -60,7 +61,7 @@ def get_shop(shop_id: int, db: Session = Depends(get_db)):
 @router.patch("/boutiques/{shop_id}/statut", response_model=schemas.AdminShopOut)
 def update_shop_status(
     shop_id: int, payload: schemas.AdminShopStatusIn,
-    admin: models.User = Depends(require_admin), db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin), db: Session = Depends(get_db),
 ):
     shop = _get_shop_or_404(db, shop_id)
     ancien = shop.abonnement_statut.value
@@ -75,7 +76,7 @@ def update_shop_status(
 @router.patch("/boutiques/{shop_id}/abonnement", response_model=schemas.AdminShopOut)
 def update_shop_plan(
     shop_id: int, payload: schemas.AdminShopPlanIn,
-    admin: models.User = Depends(require_admin), db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin), db: Session = Depends(get_db),
 ):
     shop = _get_shop_or_404(db, shop_id)
     ancien = shop.abonnement_plan.value
@@ -137,7 +138,7 @@ def list_shop_payments(shop_id: int, db: Session = Depends(get_db)):
 @router.post("/boutiques/{shop_id}/paiements", response_model=schemas.AdminShopOut, status_code=status.HTTP_201_CREATED)
 def record_shop_payment(
     shop_id: int, payload: schemas.SubscriptionPaymentIn,
-    admin: models.User = Depends(require_admin), db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin), db: Session = Depends(get_db),
 ):
     shop = _get_shop_or_404(db, shop_id)
     try:
@@ -172,7 +173,7 @@ def get_platform_settings(db: Session = Depends(get_db)):
 @router.put("/parametres", response_model=schemas.PlatformSettingsOut)
 def update_platform_settings(
     payload: schemas.PlatformSettingsIn,
-    admin: models.User = Depends(require_admin), db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin), db: Session = Depends(get_db),
 ):
     settings_row = _get_or_create_platform_settings(db)
     settings_row.wave_payment_link = payload.wave_payment_link
@@ -207,7 +208,7 @@ def list_admins(db: Session = Depends(get_db)):
 @router.post("/administrateurs", response_model=schemas.AdminAccountOut, status_code=status.HTTP_201_CREATED)
 def create_admin(
     payload: schemas.AdminCreateIn,
-    admin: models.User = Depends(require_admin), db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin), db: Session = Depends(get_db),
 ):
     from ..security import hash_password
 
@@ -218,10 +219,12 @@ def create_admin(
     new_admin = models.User(
         nom=payload.nom, prenom=payload.prenom, telephone=payload.telephone,
         password_hash=hash_password(payload.password), role=models.UserRole.ADMIN,
+        admin_role=payload.admin_role,
     )
     db.add(new_admin)
     db.flush()
-    log_admin_action(db, admin, "admin_cree", "utilisateur", new_admin.id, f"{payload.prenom} {payload.nom}")
+    log_admin_action(db, admin, "admin_cree", "utilisateur", new_admin.id,
+                      f"{payload.prenom} {payload.nom} ({payload.admin_role.value})")
     db.commit()
     db.refresh(new_admin)
     return new_admin
@@ -318,3 +321,84 @@ def get_evolution_statistics(mois: int = 6, db: Session = Depends(get_db)):
             chiffre_affaires=sum(o.total for o in orders),
         ))
     return results
+
+
+@router.get("/notifications", response_model=schemas.AdminNotificationsOut)
+def get_admin_notifications(db: Session = Depends(get_db)):
+    today = date_type.today()
+    tickets_ouverts = db.query(models.SupportTicket).filter(models.SupportTicket.statut == models.TicketStatus.OUVERT).count()
+    paiements_en_retard = (
+        db.query(models.Shop)
+        .filter(
+            models.Shop.abonnement_statut == models.SubscriptionStatus.ACTIF,
+            models.Shop.prochain_paiement_le.isnot(None),
+            models.Shop.prochain_paiement_le < today,
+        )
+        .count()
+    )
+    nouvelles_boutiques_7j = (
+        db.query(models.Shop)
+        .filter(models.Shop.created_at >= datetime.combine(today - timedelta(days=7), datetime.min.time()))
+        .count()
+    )
+    essais_expirant_bientot = (
+        db.query(models.Shop)
+        .filter(
+            models.Shop.abonnement_statut == models.SubscriptionStatus.ESSAI,
+            models.Shop.essai_expire_le.isnot(None),
+            models.Shop.essai_expire_le >= today,
+            models.Shop.essai_expire_le <= today + timedelta(days=3),
+        )
+        .count()
+    )
+    return schemas.AdminNotificationsOut(
+        tickets_ouverts=tickets_ouverts,
+        paiements_en_retard=paiements_en_retard,
+        nouvelles_boutiques_7j=nouvelles_boutiques_7j,
+        essais_expirant_bientot=essais_expirant_bientot,
+    )
+
+
+@router.get("/statistiques/revenus", response_model=schemas.PlatformRevenueOut)
+def get_platform_revenue(db: Session = Depends(get_db)):
+    shops_actives = db.query(models.Shop).filter(models.Shop.abonnement_statut == models.SubscriptionStatus.ACTIF).all()
+    mrr_estime = sum((PLAN_FEATURES.get(s.abonnement_plan, {}).get("prix_mensuel") or 0) for s in shops_actives)
+
+    total_encaisse = db.query(func.sum(models.SubscriptionPayment.montant)).scalar() or 0
+    debut_mois = date_type.today().replace(day=1)
+    encaisse_mois_courant = (
+        db.query(func.sum(models.SubscriptionPayment.montant))
+        .filter(models.SubscriptionPayment.date_paiement >= debut_mois)
+        .scalar() or 0
+    )
+
+    repartition_counts: dict[models.SubscriptionPlan, int] = {}
+    for s in shops_actives:
+        repartition_counts[s.abonnement_plan] = repartition_counts.get(s.abonnement_plan, 0) + 1
+
+    return schemas.PlatformRevenueOut(
+        mrr_estime=mrr_estime,
+        total_encaisse=total_encaisse,
+        encaisse_mois_courant=encaisse_mois_courant,
+        repartition_plans=[schemas.PlanRepartitionOut(plan=p, nombre=n) for p, n in repartition_counts.items()],
+    )
+
+
+@router.post("/boutiques/{shop_id}/impersonate", response_model=schemas.ImpersonateOut)
+def impersonate_shop(
+    shop_id: int,
+    admin: models.User = Depends(require_super_admin), db: Session = Depends(get_db),
+):
+    """Génère un token d'accès pour le propriétaire de la boutique, afin que
+    l'admin puisse diagnostiquer un problème signalé sans connaître son mot de
+    passe. Action tracée dans le journal d'audit — c'est ce qui en fait le seul
+    contrôle en place (pas de restriction technique sur ce que l'admin peut voir
+    une fois "connecté" à la place du propriétaire)."""
+    from ..security import create_access_token
+
+    shop = _get_shop_or_404(db, shop_id)
+    token = create_access_token(str(shop.owner_id))
+    log_admin_action(db, admin, "connexion_en_tant_que", "boutique", shop.id,
+                      f"{shop.nom} (propriétaire #{shop.owner_id})")
+    db.commit()
+    return schemas.ImpersonateOut(access_token=token, boutique_nom=shop.nom)

@@ -33,6 +33,29 @@ def _backfill_shop_slugs() -> None:
         db.close()
 
 
+def _backfill_admin_roles() -> None:
+    """Les comptes admin créés avant l'introduction des rôles admin (SUPER/SUPPORT)
+    n'ont pas de admin_role — les traiter comme SUPER (accès complet, comportement
+    identique à avant cette fonctionnalité) plutôt que de les bloquer."""
+    from .database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        from . import models
+
+        admins_sans_role = db.query(models.User).filter(
+            models.User.role == models.UserRole.ADMIN,
+            models.User.admin_role.is_(None),
+        ).all()
+        for admin in admins_sans_role:
+            admin.admin_role = models.AdminRole.SUPER
+        if admins_sans_role:
+            db.commit()
+            logger.info("admin_role='super' appliqué à %d compte(s) admin existant(s).", len(admins_sans_role))
+    finally:
+        db.close()
+
+
 def _add_columns_if_missing(inspector, table: str, columns_sql: dict[str, str]) -> None:
     """columns_sql: {nom_colonne: fragment DDL apres le nom, ex. "VARCHAR(20)"}."""
     if not inspector.has_table(table):
@@ -111,6 +134,7 @@ def run_startup_migrations() -> None:
         "prix_promo": "FLOAT",
         "promo_actif": "BOOLEAN DEFAULT FALSE",
         "image_path": "VARCHAR(300)",
+        "has_variants": "BOOLEAN DEFAULT FALSE",
     })
     _add_columns_if_missing(inspector, "orders", {
         "mode_livraison": "VARCHAR(20)",
@@ -119,12 +143,30 @@ def run_startup_migrations() -> None:
         "commune_livraison": "VARCHAR(120)",
         "heure_livraison_prevue": "TIMESTAMP",
         "preuve_livraison": "TEXT",
+        # FK vers coupons (nouvelle table) : VARCHAR/INTEGER brut plutôt qu'un vrai
+        # type ENUM Postgres, cf. admin_role ci-dessous.
+        "coupon_id": "INTEGER",
+    })
+    _add_columns_if_missing(inspector, "order_items", {
+        "variant_id": "INTEGER",
+    })
+    # admin_role est un nouveau type ENUM Python (AdminRole) — colonne ajoutée en
+    # VARCHAR brut sur la table users déjà existante, jamais un vrai type ENUM
+    # Postgres : Base.metadata.create_all() ne fait pas d'ALTER TABLE, donc le type
+    # ENUM ne serait jamais créé pour une colonne ajoutée après coup ici. SQLAlchemy
+    # envoie/reçoit de toute façon de simples chaînes pour une colonne Enum(...),
+    # donc le stockage VARCHAR fonctionne de façon transparente (même leçon que pour
+    # UserRole.EMPLOYEE, voir _ensure_enum_value).
+    _add_columns_if_missing(inspector, "users", {
+        "admin_role": "VARCHAR(20)",
     })
 
     Base.metadata.create_all(bind=engine)
 
     if inspector.has_table("shops"):
         _backfill_shop_slugs()
+    if inspector.has_table("users"):
+        _backfill_admin_roles()
 
     # Contrainte d'unicité posée après coup (une fois tous les slugs backfillés) —
     # jamais directement dans l'ALTER TABLE ci-dessus, qui tournerait avant le

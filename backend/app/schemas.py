@@ -4,6 +4,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from .models import (
+    AdminRole,
+    CouponType,
     DeliveryMode,
     EmployeeRole,
     ExpenseCategory,
@@ -58,6 +60,7 @@ class UserOut(BaseModel):
     email: EmailStr | None = None
     role: UserRole
     employee_role: EmployeeRole | None = None
+    admin_role: AdminRole | None = None
     has_security_question: bool = False
 
 
@@ -137,6 +140,22 @@ class ProductIn(BaseModel):
     actif: bool = True
     prix_promo: float | None = Field(ge=0, default=None)
     promo_actif: bool = False
+    has_variants: bool = False
+
+
+class ProductVariantIn(BaseModel):
+    nom: str = Field(min_length=1, max_length=150)
+    sku: str | None = None
+    prix_vente: float = Field(ge=0)
+    stock: int = Field(ge=0, default=0)
+    actif: bool = True
+
+
+class ProductVariantOut(ProductVariantIn):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    product_id: int
+    created_at: datetime
 
 
 class ProductOut(ProductIn):
@@ -144,6 +163,7 @@ class ProductOut(ProductIn):
     id: int
     shop_id: int
     image_url: str | None = None
+    variants: list[ProductVariantOut] = []
     created_at: datetime
 
 
@@ -173,6 +193,7 @@ class CustomerStats(CustomerOut):
 # ---------- Orders ----------
 class OrderItemIn(BaseModel):
     product_id: int
+    variant_id: int | None = None
     quantite: int = Field(gt=0)
 
 
@@ -182,6 +203,7 @@ class OrderIn(BaseModel):
     items: list[OrderItemIn]
     reduction: float = Field(ge=0, default=0)
     frais_livraison: float = Field(ge=0, default=0)
+    coupon_code: str | None = None
     notes: str | None = None
 
 
@@ -189,6 +211,8 @@ class OrderItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     product_id: int
+    variant_id: int | None = None
+    variant_nom: str | None = None
     quantite: int
     prix_unitaire: float
 
@@ -200,6 +224,7 @@ class OrderOut(BaseModel):
     customer_id: int
     customer_nom: str | None = None
     customer_telephone: str | None = None
+    coupon_code: str | None = None
     reduction: float
     frais_livraison: float
     total: float
@@ -231,6 +256,55 @@ class DeliveryUpdateIn(BaseModel):
     commune_livraison: str | None = None
     heure_livraison_prevue: datetime | None = None
     preuve_livraison: str | None = None
+
+
+# ---------- Coupons ----------
+class CouponIn(BaseModel):
+    code: str = Field(min_length=2, max_length=40)
+    type: CouponType
+    valeur: float = Field(gt=0)
+    date_debut: str | None = None  # ISO yyyy-mm-dd
+    date_fin: str | None = None
+    usage_max: int | None = Field(gt=0, default=None)
+    actif: bool = True
+
+
+class CouponOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    type: CouponType
+    valeur: float
+    date_debut: date_type | None = None
+    date_fin: date_type | None = None
+    usage_max: int | None = None
+    usage_compte: int
+    actif: bool
+    created_at: datetime
+
+
+# ---------- Avis clients ----------
+class ProductReviewIn(BaseModel):
+    nom_client: str = Field(min_length=2, max_length=150)
+    note: int = Field(ge=1, le=5)
+    commentaire: str | None = Field(default=None, max_length=1000)
+
+
+class ProductReviewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    product_id: int
+    nom_client: str
+    note: int
+    commentaire: str | None = None
+    approuve: bool
+    created_at: datetime
+
+
+class ProductReviewSummaryOut(BaseModel):
+    moyenne: float | None = None
+    total: int
+    avis: list[ProductReviewOut]
 
 
 # ---------- Stock ----------
@@ -331,6 +405,14 @@ class NotificationOut(BaseModel):
 
 
 # ---------- Boutique publique ----------
+class PublicProductVariantOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nom: str
+    prix_vente: float
+    stock: int
+
+
 class PublicProductOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -342,6 +424,10 @@ class PublicProductOut(BaseModel):
     image_url: str | None = None
     stock: int
     category_id: int | None = None
+    has_variants: bool = False
+    variants: list[PublicProductVariantOut] = []
+    note_moyenne: float | None = None
+    nombre_avis: int = 0
 
 
 class PublicShopOut(BaseModel):
@@ -358,6 +444,7 @@ class PublicShopOut(BaseModel):
 
 class PublicOrderItemIn(BaseModel):
     product_id: int
+    variant_id: int | None = None
     quantite: int = Field(gt=0)
 
 
@@ -366,6 +453,7 @@ class PublicOrderIn(BaseModel):
     client_telephone: str
     client_commune: str | None = None
     items: list[PublicOrderItemIn]
+    coupon_code: str | None = None
     notes: str | None = None
 
 
@@ -492,6 +580,7 @@ class AdminCreateIn(BaseModel):
     prenom: str
     telephone: str
     password: str = Field(min_length=6)
+    admin_role: AdminRole = AdminRole.SUPPORT
 
 
 class AdminAccountOut(BaseModel):
@@ -500,8 +589,37 @@ class AdminAccountOut(BaseModel):
     nom: str
     prenom: str
     telephone: str
+    admin_role: AdminRole | None = None
     actif: bool
     created_at: datetime
+
+
+# ---------- Notifications admin ----------
+class AdminNotificationsOut(BaseModel):
+    tickets_ouverts: int
+    paiements_en_retard: int
+    nouvelles_boutiques_7j: int
+    essais_expirant_bientot: int
+
+
+# ---------- Revenus plateforme ----------
+class PlanRepartitionOut(BaseModel):
+    plan: SubscriptionPlan
+    nombre: int
+
+
+class PlatformRevenueOut(BaseModel):
+    mrr_estime: float
+    total_encaisse: float
+    encaisse_mois_courant: float
+    repartition_plans: list[PlanRepartitionOut]
+
+
+# ---------- Connexion en tant que ----------
+class ImpersonateOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    boutique_nom: str
 
 
 # ---------- Plans ----------

@@ -25,6 +25,15 @@
       <div class="kpi"><div class="label">CA total plateforme</div><div class="value orange">—</div></div>
     </div>
     <div class="card">
+      <h2>Revenus plateforme</h2>
+      <div class="kpi-grid" id="revenueKpis">
+        <div class="kpi"><div class="label">MRR estimé</div><div class="value orange">—</div></div>
+        <div class="kpi"><div class="label">Encaissé ce mois-ci</div><div class="value green">—</div></div>
+        <div class="kpi"><div class="label">Total encaissé (historique)</div><div class="value">—</div></div>
+      </div>
+      <div id="planRepartition" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
       <h2>Évolution (6 derniers mois)</h2>
       <div id="evolutionChart"></div>
     </div>
@@ -90,12 +99,21 @@
   }
 
   async function load() {
-    const [stats, shops, evolution] = await Promise.all([
+    const [stats, shops, evolution, revenue] = await Promise.all([
       api("/api/admin/statistiques"),
       api("/api/admin/boutiques"),
       api("/api/admin/statistiques/evolution?mois=6"),
+      api("/api/admin/statistiques/revenus"),
     ]);
     renderEvolutionChart(evolution);
+
+    const revenueValues = document.querySelectorAll("#revenueKpis .value");
+    revenueValues[0].textContent = fmtFCFA(revenue.mrr_estime);
+    revenueValues[1].textContent = fmtFCFA(revenue.encaisse_mois_courant);
+    revenueValues[2].textContent = fmtFCFA(revenue.total_encaisse);
+    document.getElementById("planRepartition").innerHTML = revenue.repartition_plans.length === 0
+      ? `<p class="empty">Aucune boutique active pour l'instant</p>`
+      : revenue.repartition_plans.map((r) => `<span class="badge gray" style="margin-right:6px">${PLAN_LABELS[r.plan] || r.plan} : ${r.nombre}</span>`).join("");
 
     const values = document.querySelectorAll("#kpiGrid .value");
     values[0].textContent = stats.boutiques_actives;

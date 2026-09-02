@@ -131,6 +131,20 @@ class StockMovementType(str, enum.Enum):
     ANNULATION = "annulation"
 
 
+class CouponType(str, enum.Enum):
+    POURCENTAGE = "pourcentage"
+    MONTANT = "montant"
+
+
+class AdminRole(str, enum.Enum):
+    """Uniquement pertinent pour role == ADMIN. SUPPORT = accès tickets et
+    consultation seule ; SUPER = accès complet (suspension, plans, paramètres,
+    création d'autres admins, connexion en tant que)."""
+
+    SUPER = "super"
+    SUPPORT = "support"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -151,6 +165,8 @@ class User(Base):
     # employé qui ne l'a pas encore définie depuis son premier login.
     security_question: Mapped[str | None] = mapped_column(String(255), nullable=True)
     security_answer_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Uniquement pour role == ADMIN : distingue un admin complet d'un admin support.
+    admin_role: Mapped[AdminRole | None] = mapped_column(Enum(AdminRole), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     shops: Mapped[list["Shop"]] = relationship(
@@ -229,11 +245,14 @@ class Product(Base):
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
     prix_promo: Mapped[float | None] = mapped_column(Float, nullable=True)
     promo_actif: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_variants: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     shop: Mapped["Shop"] = relationship(back_populates="products")
     category: Mapped["Category | None"] = relationship(back_populates="products")
     stock_movements: Mapped[list["StockMovement"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    variants: Mapped[list["ProductVariant"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    reviews: Mapped[list["ProductReview"]] = relationship(back_populates="product", cascade="all, delete-orphan")
 
     @property
     def image_url(self) -> str | None:
@@ -244,6 +263,41 @@ class Product(Base):
         if self.promo_actif and self.prix_promo is not None:
             return self.prix_promo
         return self.prix_vente
+
+
+class ProductVariant(Base):
+    """Déclinaison d'un produit (taille/couleur/modèle...), chacune avec son propre
+    stock et prix — n'existe que pour un produit avec has_variants=True. La promo
+    (prix_promo/promo_actif) du produit parent ne s'applique pas aux variantes,
+    volontairement laissé simple pour une première version."""
+
+    __tablename__ = "product_variants"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    nom: Mapped[str] = mapped_column(String(150))
+    sku: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    prix_vente: Mapped[float] = mapped_column(Float, default=0)
+    stock: Mapped[int] = mapped_column(Integer, default=0)
+    actif: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    product: Mapped["Product"] = relationship(back_populates="variants")
+
+
+class ProductReview(Base):
+    __tablename__ = "product_reviews"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    nom_client: Mapped[str] = mapped_column(String(150))
+    note: Mapped[int] = mapped_column(Integer)
+    commentaire: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approuve: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    product: Mapped["Product"] = relationship(back_populates="reviews")
 
 
 class Customer(Base):
@@ -262,6 +316,29 @@ class Customer(Base):
     orders: Mapped[list["Order"]] = relationship(back_populates="customer")
 
 
+class Coupon(Base):
+    """Code promo saisi par le client à la commande — distinct de la remise
+    automatique prix_promo/promo_actif sur un produit. Unicité du code vérifiée au
+    niveau applicatif (par boutique), pas par contrainte SQL, pour rester cohérent
+    avec le reste du code (ex. unicité du téléphone à la création d'un admin)."""
+
+    __tablename__ = "coupons"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    type: Mapped[CouponType] = mapped_column(Enum(CouponType))
+    valeur: Mapped[float] = mapped_column(Float)
+    date_debut: Mapped[date_type | None] = mapped_column(Date, nullable=True)
+    date_fin: Mapped[date_type | None] = mapped_column(Date, nullable=True)
+    usage_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    usage_compte: Mapped[int] = mapped_column(Integer, default=0)
+    actif: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    shop: Mapped["Shop"] = relationship()
+
+
 class Order(Base):
     __tablename__ = "orders"
 
@@ -269,6 +346,7 @@ class Order(Base):
     shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
     numero: Mapped[str] = mapped_column(String(30), unique=True, index=True)
+    coupon_id: Mapped[int | None] = mapped_column(ForeignKey("coupons.id"), nullable=True)
     reduction: Mapped[float] = mapped_column(Float, default=0)
     frais_livraison: Mapped[float] = mapped_column(Float, default=0)
     total: Mapped[float] = mapped_column(Float, default=0)
@@ -286,6 +364,7 @@ class Order(Base):
     shop: Mapped["Shop"] = relationship(back_populates="orders")
     customer: Mapped["Customer"] = relationship(back_populates="orders")
     items: Mapped[list["OrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+    coupon: Mapped["Coupon | None"] = relationship()
 
     @property
     def customer_nom(self) -> str | None:
@@ -295,6 +374,10 @@ class Order(Base):
     def customer_telephone(self) -> str | None:
         return self.customer.telephone if self.customer else None
 
+    @property
+    def coupon_code(self) -> str | None:
+        return self.coupon.code if self.coupon else None
+
 
 class OrderItem(Base):
     __tablename__ = "order_items"
@@ -302,12 +385,18 @@ class OrderItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    variant_id: Mapped[int | None] = mapped_column(ForeignKey("product_variants.id"), nullable=True)
     quantite: Mapped[int] = mapped_column(Integer)
     prix_unitaire: Mapped[float] = mapped_column(Float)
     prix_achat_unitaire: Mapped[float] = mapped_column(Float, default=0)
 
     order: Mapped["Order"] = relationship(back_populates="items")
     product: Mapped["Product"] = relationship()
+    variant: Mapped["ProductVariant | None"] = relationship()
+
+    @property
+    def variant_nom(self) -> str | None:
+        return self.variant.nom if self.variant else None
 
 
 class StockMovement(Base):

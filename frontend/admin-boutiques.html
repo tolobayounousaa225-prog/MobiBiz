@@ -62,6 +62,7 @@
 
         <div class="form-actions">
           <button class="btn" id="saveShopBtn">Enregistrer</button>
+          <button type="button" class="btn secondary hidden" id="impersonateBtn">Se connecter en tant que</button>
         </div>
 
         <h2 style="margin-top:22px;font-size:15px">Enregistrer un paiement reçu</h2>
@@ -86,6 +87,7 @@
 
   let shops = [];
   let currentShopId = null;
+  let isSuperAdmin = false;
 
   function renderShops() {
     const q = document.getElementById("searchInput").value.toLowerCase();
@@ -139,12 +141,23 @@
     document.getElementById("m_plan").value = shop.abonnement_plan;
     document.getElementById("pay_montant").value = "";
     document.getElementById("pay_date").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("impersonateBtn").classList.toggle("hidden", !isSuperAdmin);
+    document.getElementById("saveShopBtn").classList.toggle("hidden", !isSuperAdmin);
+    document.getElementById("recordPaymentBtn").classList.toggle("hidden", !isSuperAdmin);
     document.getElementById("shopModalBackdrop").classList.remove("hidden");
     loadPayments(shop.id);
   }
 
   document.getElementById("closeShopModal").addEventListener("click", () =>
     document.getElementById("shopModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("impersonateBtn").addEventListener("click", async () => {
+    try {
+      const result = await api(`/api/admin/boutiques/${currentShopId}/impersonate`, { method: "POST" });
+      Auth.startImpersonation(result.access_token, result.boutique_nom);
+      window.location.href = "dashboard.html";
+    } catch (err) { toast(err.message, "error"); }
+  });
 
   document.getElementById("recordPaymentBtn").addEventListener("click", async () => {
     const montant = Number(document.getElementById("pay_montant").value);
@@ -186,7 +199,13 @@
     renderShops();
   }
 
-  loadShops().catch((err) => toast(err.message, "error"));
+  (async () => {
+    try {
+      const me = await api("/api/auth/me");
+      isSuperAdmin = me.admin_role === "super";
+      await loadShops();
+    } catch (err) { toast(err.message, "error"); }
+  })();
 </script>
 </body>
 </html>

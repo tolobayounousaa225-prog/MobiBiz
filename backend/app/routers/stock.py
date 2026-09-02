@@ -134,6 +134,31 @@ def adjust_stock(
     return product
 
 
+@router.post("/variantes/{variant_id}/ajuster", response_model=schemas.ProductVariantOut)
+def adjust_variant_stock(
+    variant_id: int,
+    payload: schemas.StockAdjustIn,
+    shop: models.Shop = Depends(get_current_shop),
+    db: Session = Depends(get_db),
+):
+    variant = (
+        db.query(models.ProductVariant)
+        .join(models.Product, models.Product.id == models.ProductVariant.product_id)
+        .filter(models.ProductVariant.id == variant_id, models.Product.shop_id == shop.id)
+        .first()
+    )
+    if variant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Variante introuvable")
+
+    new_stock = variant.stock + payload.quantite
+    if new_stock < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Le stock ne peut pas être négatif")
+    variant.stock = new_stock
+    db.commit()
+    db.refresh(variant)
+    return variant
+
+
 @router.get("/{product_id}/mouvements", response_model=list[StockMovementOut])
 def stock_movements(
     product_id: int,

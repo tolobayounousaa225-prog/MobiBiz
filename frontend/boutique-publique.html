@@ -41,7 +41,9 @@
   const slug = params.get("slug");
   let shopData = null;
   let categories = [];
-  let cart = {}; // product_id -> { product, qty }
+  let cart = {}; // cartKey -> { product, variant, qty }
+
+  function cartKey(productId, variantId) { return `${productId}:${variantId || 0}`; }
 
   async function loadShop() {
     if (!slug) {
@@ -118,34 +120,50 @@
 
     grid.innerHTML = list.map((p) => `
       <div class="product-card">
-        ${p.image_url ? `<img src="${API_BASE}${p.image_url}" alt="${p.nom}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;margin-bottom:8px">` : ""}
-        <div class="name">${p.nom}</div>
+        ${p.image_url ? `<img src="${API_BASE}${p.image_url}" alt="${p.nom}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer" data-open="${p.id}">` : ""}
+        <div class="name" style="cursor:pointer" data-open="${p.id}">${p.nom}</div>
         ${categoryName(p.category_id) ? `<div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:4px">${categoryName(p.category_id)}</div>` : ""}
+        ${p.nombre_avis > 0 ? `<div style="font-size:12px;color:var(--ink-soft);margin-bottom:4px">${"★".repeat(Math.round(p.note_moyenne))}${"☆".repeat(5 - Math.round(p.note_moyenne))} (${p.nombre_avis})</div>` : ""}
         <div class="desc">${p.description || ""}</div>
-        <div class="price">${hasPromo(p)
-          ? `<span style="text-decoration:line-through;color:var(--ink-soft);font-weight:400;font-size:12.5px">${fmtFCFA(p.prix_vente)}</span> <span class="badge orange">Promo ${fmtFCFA(p.prix_promo)}</span>`
-          : fmtFCFA(p.prix_vente)}</div>
-        <button class="btn small" data-add="${p.id}">Ajouter</button>
+        <div class="price">${p.has_variants
+          ? `dès ${fmtFCFA(Math.min(...p.variants.map((v) => v.prix_vente)))}`
+          : (hasPromo(p)
+            ? `<span style="text-decoration:line-through;color:var(--ink-soft);font-weight:400;font-size:12.5px">${fmtFCFA(p.prix_vente)}</span> <span class="badge orange">Promo ${fmtFCFA(p.prix_promo)}</span>`
+            : fmtFCFA(p.prix_vente))}</div>
+        <button class="btn small" data-add="${p.id}">${p.has_variants ? "Choisir" : "Ajouter"}</button>
       </div>
     `).join("");
 
+    grid.querySelectorAll("[data-open]").forEach((el) => {
+      el.addEventListener("click", () => openProductModal(shopData.produits.find((p) => p.id === Number(el.dataset.open))));
+    });
     grid.querySelectorAll("[data-add]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const product = shopData.produits.find((p) => p.id === Number(btn.dataset.add));
-        addToCart(product);
+        if (product.has_variants) {
+          openProductModal(product);
+        } else {
+          addToCart(product, null, 1);
+        }
       });
     });
   }
 
-  function addToCart(product) {
-    if (!cart[product.id]) cart[product.id] = { product, qty: 0 };
-    if (cart[product.id].qty >= product.stock) {
+  function addToCart(product, variant, qty) {
+    const availableStock = variant ? variant.stock : product.stock;
+    const key = cartKey(product.id, variant ? variant.id : null);
+    if (!cart[key]) cart[key] = { product, variant, qty: 0 };
+    if (cart[key].qty + qty > availableStock) {
       toast("Stock disponible atteint", "error");
       return;
     }
-    cart[product.id].qty += 1;
+    cart[key].qty += qty;
     updateCartBar();
-    toast(`${product.nom} ajouté`, "success");
+    toast(`${product.nom}${variant ? ` (${variant.nom})` : ""} ajouté`, "success");
+  }
+
+  function cartUnitPrice(entry) {
+    return entry.variant ? entry.variant.prix_vente : effectivePrice(entry.product);
   }
 
   function updateCartBar() {
@@ -153,13 +171,117 @@
     const bar = document.getElementById("cartBar");
     if (entries.length === 0) { bar.classList.remove("visible"); return; }
     const totalQty = entries.reduce((s, e) => s + e.qty, 0);
-    const total = entries.reduce((s, e) => s + e.qty * effectivePrice(e.product), 0);
+    const total = entries.reduce((s, e) => s + e.qty * cartUnitPrice(e), 0);
     document.getElementById("cartSummary").textContent = `${totalQty} article(s) — ${fmtFCFA(total)}`;
     bar.classList.add("visible");
   }
 
+  async function openProductModal(product) {
+    const modal = document.getElementById("productDetailBackdrop");
+    document.getElementById("pd_title").textContent = product.nom;
+    document.getElementById("pd_image").innerHTML = product.image_url
+      ? `<img src="${API_BASE}${product.image_url}" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;margin-bottom:10px">` : "";
+    document.getElementById("pd_desc").textContent = product.description || "";
+
+    const variantBox = document.getElementById("pd_variant_box");
+    const availableVariants = (product.variants || []).filter((v) => v.stock > 0);
+    if (product.has_variants) {
+      variantBox.innerHTML = `
+        <label for="pd_variant">Choisissez une option</label>
+        <select id="pd_variant">${availableVariants.map((v) => `<option value="${v.id}">${v.nom} — ${fmtFCFA(v.prix_vente)} (stock ${v.stock})</option>`).join("")}</select>
+      `;
+    } else {
+      variantBox.innerHTML = `<div class="price" style="margin:8px 0">${hasPromo(product)
+        ? `<span style="text-decoration:line-through;color:var(--ink-soft);font-weight:400;font-size:12.5px">${fmtFCFA(product.prix_vente)}</span> <span class="badge orange">Promo ${fmtFCFA(product.prix_promo)}</span>`
+        : fmtFCFA(product.prix_vente)}</div>`;
+    }
+
+    document.getElementById("pd_qty").value = 1;
+    document.getElementById("pd_add_btn").onclick = () => {
+      const qty = Number(document.getElementById("pd_qty").value) || 1;
+      if (product.has_variants) {
+        const variantId = Number(document.getElementById("pd_variant").value);
+        const variant = availableVariants.find((v) => v.id === variantId);
+        if (!variant) { toast("Aucune variante disponible", "error"); return; }
+        addToCart(product, variant, qty);
+      } else {
+        addToCart(product, null, qty);
+      }
+      document.getElementById("productDetailBackdrop").classList.add("hidden");
+    };
+
+    document.getElementById("pd_reviews").innerHTML = `<p class="empty">Chargement des avis…</p>`;
+    modal.classList.remove("hidden");
+
+    try {
+      const summary = await api(`/api/public/boutiques/${encodeURIComponent(slug)}/produits/${product.id}/avis`);
+      const reviewsHtml = summary.avis.length === 0
+        ? `<p class="empty">Aucun avis pour l'instant — soyez le premier !</p>`
+        : summary.avis.map((r) => `
+            <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between"><strong>${r.nom_client}</strong><span>${"★".repeat(r.note)}${"☆".repeat(5 - r.note)}</span></div>
+              ${r.commentaire ? `<p style="margin:4px 0;font-size:13px">${r.commentaire}</p>` : ""}
+            </div>
+          `).join("");
+      document.getElementById("pd_reviews").innerHTML = `
+        <h3 style="font-size:14px;margin:16px 0 8px">Avis clients ${summary.total > 0 ? `(${summary.moyenne}★ · ${summary.total})` : ""}</h3>
+        ${reviewsHtml}
+        <button class="btn secondary small" id="pd_show_review_form" style="margin-top:8px">Laisser un avis</button>
+        <form id="pd_review_form" class="hidden" style="margin-top:10px">
+          <label for="pd_review_nom">Votre nom</label>
+          <input type="text" id="pd_review_nom" required>
+          <label for="pd_review_note">Note</label>
+          <select id="pd_review_note">
+            <option value="5">★★★★★</option>
+            <option value="4">★★★★☆</option>
+            <option value="3">★★★☆☆</option>
+            <option value="2">★★☆☆☆</option>
+            <option value="1">★☆☆☆☆</option>
+          </select>
+          <label for="pd_review_comment">Commentaire (optionnel)</label>
+          <textarea id="pd_review_comment" rows="2"></textarea>
+          <div class="form-actions"><button type="submit" class="btn small">Envoyer l'avis</button></div>
+        </form>
+      `;
+      document.getElementById("pd_show_review_form").addEventListener("click", () => {
+        document.getElementById("pd_review_form").classList.remove("hidden");
+      });
+      document.getElementById("pd_review_form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          await api(`/api/public/boutiques/${encodeURIComponent(slug)}/produits/${product.id}/avis`, {
+            method: "POST",
+            body: {
+              nom_client: document.getElementById("pd_review_nom").value.trim(),
+              note: Number(document.getElementById("pd_review_note").value),
+              commentaire: document.getElementById("pd_review_comment").value.trim() || null,
+            },
+          });
+          document.getElementById("pd_reviews").innerHTML = `<p class="empty">Merci ! Votre avis sera visible après validation par le commerçant.</p>`;
+          toast("Avis envoyé", "success");
+        } catch (err) { toast(err.message, "error"); }
+      });
+    } catch (err) {
+      document.getElementById("pd_reviews").innerHTML = "";
+    }
+  }
+
   function injectCheckoutModal() {
     document.body.insertAdjacentHTML("beforeend", `
+      <div class="modal-backdrop hidden" id="productDetailBackdrop">
+        <div class="modal">
+          <button class="modal-close" id="closeProductDetail">&times;</button>
+          <h2 id="pd_title"></h2>
+          <div id="pd_image"></div>
+          <p id="pd_desc" style="color:var(--ink-soft);font-size:13.5px"></p>
+          <div id="pd_variant_box"></div>
+          <label for="pd_qty">Quantité</label>
+          <input type="number" id="pd_qty" min="1" value="1" style="width:100px">
+          <div class="form-actions"><button type="button" class="btn" id="pd_add_btn">Ajouter au panier</button></div>
+          <div id="pd_reviews"></div>
+        </div>
+      </div>
+
       <div class="modal-backdrop hidden" id="checkoutBackdrop">
         <div class="modal">
           <button class="modal-close" id="closeCheckout">&times;</button>
@@ -172,6 +294,8 @@
             <input type="tel" id="pc_tel" required>
             <label for="pc_commune">Commune (optionnel)</label>
             <input type="text" id="pc_commune">
+            <label for="pc_coupon">Code promo (optionnel)</label>
+            <input type="text" id="pc_coupon" style="text-transform:uppercase" placeholder="Ex: PROMO10">
             <div class="form-actions">
               <button type="submit" class="btn" id="submitOrderBtn">Envoyer la commande</button>
             </div>
@@ -181,14 +305,18 @@
       </div>
     `);
 
+    document.getElementById("closeProductDetail").addEventListener("click", () =>
+      document.getElementById("productDetailBackdrop").classList.add("hidden"));
+
     document.getElementById("openCheckoutBtn").addEventListener("click", () => {
       const entries = Object.values(cart).filter((e) => e.qty > 0);
       document.getElementById("cartItemsList").innerHTML = entries.map((e) => `
         <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px">
-          <span>${e.product.nom} × ${e.qty}</span>
-          <span>${fmtFCFA(effectivePrice(e.product) * e.qty)}</span>
+          <span>${e.product.nom}${e.variant ? ` (${e.variant.nom})` : ""} × ${e.qty}</span>
+          <span>${fmtFCFA(cartUnitPrice(e) * e.qty)}</span>
         </div>
       `).join("");
+      document.getElementById("pc_coupon").value = "";
       document.getElementById("checkoutResult").innerHTML = "";
       document.getElementById("checkoutForm").style.display = "block";
       document.getElementById("checkoutBackdrop").classList.remove("hidden");
@@ -211,7 +339,8 @@
             client_nom: document.getElementById("pc_nom").value.trim(),
             client_telephone: document.getElementById("pc_tel").value.trim(),
             client_commune: document.getElementById("pc_commune").value.trim() || null,
-            items: entries.map((e) => ({ product_id: e.product.id, quantite: e.qty })),
+            coupon_code: document.getElementById("pc_coupon").value.trim() || null,
+            items: entries.map((e) => ({ product_id: e.product.id, variant_id: e.variant ? e.variant.id : null, quantite: e.qty })),
           },
         });
         document.getElementById("checkoutForm").style.display = "none";

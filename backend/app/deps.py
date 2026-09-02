@@ -114,3 +114,15 @@ def require_admin(current_user: models.User = Depends(get_current_user)) -> mode
             detail="Réservé à l'administrateur de la plateforme",
         )
     return current_user
+
+
+def require_super_admin(current_user: models.User = Depends(require_admin)) -> models.User:
+    """Sous-ensemble de require_admin : réservé aux actions sensibles (suspension,
+    changement de plan, paiements, paramètres, création d'admin, connexion en tant
+    que) — un admin SUPPORT peut consulter mais pas agir sur ces points."""
+    if current_user.admin_role != models.AdminRole.SUPER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Réservé à un administrateur complet (SUPER)",
+        )
+    return current_user

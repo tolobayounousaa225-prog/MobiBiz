@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codes promo — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<script src="assets/js/api.js"></script>
+<script>Auth.requireAuth();</script>
+<script src="assets/js/layout.js"></script>
+<script>
+  renderLayout("coupons", "Codes promo", "Créez des codes de réduction pour vos clients");
+
+  document.getElementById("topbarActions").insertAdjacentHTML("afterbegin", `<button class="btn" id="newCouponBtn">+ Nouveau code</button>`);
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Type</th><th>Valeur</th><th>Validité</th><th>Utilisation</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="couponsBody"><tr><td colspan="7" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop hidden" id="couponModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeCouponModal">&times;</button>
+        <h2 id="couponModalTitle">Nouveau code promo</h2>
+        <form id="couponForm">
+          <input type="hidden" id="couponId">
+          <label for="c_code">Code</label>
+          <input type="text" id="c_code" required style="text-transform:uppercase" placeholder="Ex: PROMO10">
+
+          <div class="field-row">
+            <div>
+              <label for="c_type">Type de réduction</label>
+              <select id="c_type">
+                <option value="pourcentage">Pourcentage (%)</option>
+                <option value="montant">Montant fixe (FCFA)</option>
+              </select>
+            </div>
+            <div>
+              <label for="c_valeur">Valeur</label>
+              <input type="number" id="c_valeur" min="0" step="1" required>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div><label for="c_debut">Date de début (optionnel)</label><input type="date" id="c_debut"></div>
+            <div><label for="c_fin">Date de fin (optionnel)</label><input type="date" id="c_fin"></div>
+          </div>
+
+          <label for="c_usage_max">Nombre d'utilisations max (optionnel)</label>
+          <input type="number" id="c_usage_max" min="1" step="1" placeholder="Illimité si vide">
+
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:14px">
+            <input type="checkbox" id="c_actif" style="width:auto" checked> Actif
+          </label>
+
+          <div class="form-actions">
+            <button type="submit" class="btn">Enregistrer</button>
+            <button type="button" class="btn danger hidden" id="deleteCouponBtn">Supprimer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `);
+
+  let coupons = [];
+
+  function renderCoupons() {
+    const body = document.getElementById("couponsBody");
+    if (coupons.length === 0) {
+      body.innerHTML = `<tr><td colspan="7" class="empty">Aucun code promo — créez-en un pour vos clients</td></tr>`;
+      return;
+    }
+    body.innerHTML = coupons.map((c) => {
+      const valeur = c.type === "pourcentage" ? `${c.valeur}%` : fmtFCFA(c.valeur);
+      const validite = [c.date_debut, c.date_fin].filter(Boolean).length
+        ? `${c.date_debut ? fmtDate(c.date_debut) : "…"} → ${c.date_fin ? fmtDate(c.date_fin) : "…"}`
+        : "Sans limite";
+      const usage = c.usage_max ? `${c.usage_compte} / ${c.usage_max}` : `${c.usage_compte} (illimité)`;
+      return `
+        <tr>
+          <td><strong>${c.code}</strong></td>
+          <td>${c.type === "pourcentage" ? "Pourcentage" : "Montant fixe"}</td>
+          <td>${valeur}</td>
+          <td>${validite}</td>
+          <td>${usage}</td>
+          <td>${c.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Inactif</span>`}</td>
+          <td><button class="btn secondary small" data-edit="${c.id}">Modifier</button></td>
+        </tr>
+      `;
+    }).join("");
+    body.querySelectorAll("[data-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => openCouponModal(coupons.find((c) => c.id === Number(btn.dataset.edit))));
+    });
+  }
+
+  async function loadCoupons() {
+    coupons = await api("/api/coupons");
+    renderCoupons();
+  }
+
+  function openCouponModal(coupon) {
+    document.getElementById("couponModalTitle").textContent = coupon ? "Modifier le code promo" : "Nouveau code promo";
+    document.getElementById("couponId").value = coupon ? coupon.id : "";
+    document.getElementById("c_code").value = coupon ? coupon.code : "";
+    document.getElementById("c_type").value = coupon ? coupon.type : "pourcentage";
+    document.getElementById("c_valeur").value = coupon ? coupon.valeur : "";
+    document.getElementById("c_debut").value = coupon && coupon.date_debut ? coupon.date_debut : "";
+    document.getElementById("c_fin").value = coupon && coupon.date_fin ? coupon.date_fin : "";
+    document.getElementById("c_usage_max").value = coupon && coupon.usage_max != null ? coupon.usage_max : "";
+    document.getElementById("c_actif").checked = coupon ? !!coupon.actif : true;
+    document.getElementById("deleteCouponBtn").classList.toggle("hidden", !coupon);
+    document.getElementById("couponModalBackdrop").classList.remove("hidden");
+  }
+
+  document.getElementById("newCouponBtn").addEventListener("click", () => openCouponModal(null));
+  document.getElementById("closeCouponModal").addEventListener("click", () =>
+    document.getElementById("couponModalBackdrop").classList.add("hidden"));
+
+  document.getElementById("couponForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = document.getElementById("couponId").value;
+    const payload = {
+      code: document.getElementById("c_code").value.trim(),
+      type: document.getElementById("c_type").value,
+      valeur: Number(document.getElementById("c_valeur").value),
+      date_debut: document.getElementById("c_debut").value || null,
+      date_fin: document.getElementById("c_fin").value || null,
+      usage_max: document.getElementById("c_usage_max").value ? Number(document.getElementById("c_usage_max").value) : null,
+      actif: document.getElementById("c_actif").checked,
+    };
+    try {
+      if (id) {
+        await api(`/api/coupons/${id}`, { method: "PUT", body: payload });
+      } else {
+        await api("/api/coupons", { method: "POST", body: payload });
+      }
+      document.getElementById("couponModalBackdrop").classList.add("hidden");
+      await loadCoupons();
+      toast("Code promo enregistré", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("deleteCouponBtn").addEventListener("click", async () => {
+    const id = document.getElementById("couponId").value;
+    if (!confirm("Supprimer ce code promo ?")) return;
+    try {
+      await api(`/api/coupons/${id}`, { method: "DELETE" });
+      document.getElementById("couponModalBackdrop").classList.add("hidden");
+      await loadCoupons();
+      toast("Code promo supprimé", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  loadCoupons().catch((err) => toast(err.message, "error"));
+</script>
+</body>
+</html>

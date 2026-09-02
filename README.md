@@ -125,6 +125,56 @@ Implémenté et testé de bout en bout :
   en haut de `stock.html` (KPI + 3 tableaux), bouton « Ajuster » direct depuis le
   tableau de stock dormant.
 
+## Boutique et administration — 2e vague (2026-09-02)
+
+Côté boutique :
+- **Variantes produits** ✅ — `ProductVariant` (taille/couleur/modèle), chacune avec
+  son propre stock et prix. `Product.has_variants` bascule la vente : produit
+  simple → `product.stock`/`prix_vente` ; produit à variantes → la commande DOIT
+  préciser `variant_id`, stock décrémenté sur la variante (interne, boutique
+  publique, annulation/retour). Géré depuis `produits.html` (section dépliable dans
+  la fiche produit, activable seulement une fois le produit enregistré).
+- **Codes promo / coupons** ✅ — `Coupon` (pourcentage ou montant fixe, dates de
+  validité, usage max), distinct de la remise automatique `prix_promo`. Validation
+  et calcul centralisés dans `routers/coupons.py::validate_and_apply_coupon`,
+  appelé à la fois par la commande interne et la commande boutique publique (pour
+  ne pas reproduire le bug déjà rencontré avec `effective_price` dupliqué). Gestion
+  CRUD sur `coupons.html` (propriétaire uniquement).
+- **Factures PDF** ✅ — `GET /api/commandes/{id}/facture.pdf`, généré avec
+  `reportlab` (pur Python, pas de dépendance système type pango/cairo — s'installe
+  sans souci sur l'image Docker Railway). Bouton de téléchargement sur le détail
+  d'une commande dans `commandes.html`.
+- **Avis clients** ✅ — `ProductReview`, soumis sans compte depuis la boutique
+  publique (modéré : `approuve=False` par défaut, visible publiquement seulement
+  après validation du commerçant depuis `produits.html`). Rate-limité par IP.
+  Moyenne/nombre affichés sur la fiche produit publique.
+
+Côté administration plateforme :
+- **Notifications admin** ✅ — `GET /api/admin/notifications` (calculé à la volée,
+  pas de table dédiée) : tickets ouverts, paiements en retard, essais expirant
+  sous 3 jours, nouvelles boutiques (7j). Cloche dans `admin-layout.js`, même
+  pattern que la cloche boutique.
+- **Revenus plateforme** ✅ — `GET /api/admin/statistiques/revenus` : MRR estimé
+  (somme des prix des plans des boutiques actives), encaissé ce mois-ci et total
+  historique (`SubscriptionPayment`), répartition par plan. Section dédiée sur
+  `admin-dashboard.html`.
+- **Connexion en tant que** ✅ — `POST /api/admin/boutiques/{id}/impersonate`
+  (SUPER uniquement) génère un token pour le propriétaire de la boutique, pour
+  diagnostiquer un problème signalé sans connaître son mot de passe. Tracé dans le
+  journal d'audit (seul garde-fou — pas de restriction technique sur ce que l'admin
+  peut voir une fois "connecté"). Le frontend garde le token admin de côté
+  (`Auth.startImpersonation`) et affiche un bandeau « Quitter » sur tout l'espace
+  boutique (`layout.js`) pour revenir sans se reconnecter.
+- **Rôles admin (SUPER / SUPPORT)** ✅ — `User.admin_role`, nouvelle dépendance
+  `require_super_admin` en plus de `require_admin`. SUPPORT : accès tickets et
+  consultation seule (boutiques, utilisateurs, journal, statistiques) ; SUPER :
+  accès complet (suspension, plans, paiements, paramètres, création d'admin,
+  connexion en tant que). Comptes admin déjà existants migrés en SUPER
+  automatiquement (`_backfill_admin_roles`) pour ne rien changer à leur
+  comportement actuel. Nav admin et boutons sensibles masqués côté frontend selon
+  le rôle, en plus du contrôle serveur (le frontend ne fait qu'améliorer l'UX, le
+  403 serveur reste l'unique garde-fou réel).
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

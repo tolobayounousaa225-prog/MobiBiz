@@ -43,3 +43,12 @@ def enforce_public_order_rate_limit(request: Request) -> None:
     client_ip = request.client.host if request.client else "unknown"
     _enforce("public_order", client_ip, max_attempts=15, window_seconds=600,
              message="Trop de commandes envoyées. Réessayez dans quelques minutes.")
+
+
+def enforce_review_rate_limit(request: Request) -> None:
+    """Anti-spam sur le dépôt d'avis produit public (aucune authentification) —
+    plus strict que les commandes, un avis n'a pas besoin d'être aussi fréquent
+    qu'un achat légitime."""
+    client_ip = request.client.host if request.client else "unknown"
+    _enforce("public_review", client_ip, max_attempts=5, window_seconds=600,
+             message="Trop d'avis envoyés. Réessayez dans quelques minutes.")

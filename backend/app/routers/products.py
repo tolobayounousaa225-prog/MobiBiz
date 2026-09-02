@@ -282,3 +282,148 @@ def remove_product_image(
     db.commit()
     db.refresh(product)
     return product
+
+
+# ---------- Variantes ----------
+def _get_owned_variant(db: Session, shop: models.Shop, product_id: int, variant_id: int) -> models.ProductVariant:
+    variant = (
+        db.query(models.ProductVariant)
+        .join(models.Product, models.Product.id == models.ProductVariant.product_id)
+        .filter(
+            models.ProductVariant.id == variant_id,
+            models.ProductVariant.product_id == product_id,
+            models.Product.shop_id == shop.id,
+        )
+        .first()
+    )
+    if variant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Variante introuvable")
+    return variant
+
+
+@router.get("/{product_id}/variantes", response_model=list[schemas.ProductVariantOut])
+def list_variants(
+    product_id: int,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_any_module("produits", "commandes", "stock")),
+    db: Session = Depends(get_db),
+):
+    _get_owned_product(db, shop, product_id)
+    return (
+        db.query(models.ProductVariant)
+        .filter(models.ProductVariant.product_id == product_id)
+        .order_by(models.ProductVariant.nom)
+        .all()
+    )
+
+
+@router.post("/{product_id}/variantes", response_model=schemas.ProductVariantOut, status_code=status.HTTP_201_CREATED)
+def create_variant(
+    product_id: int,
+    payload: schemas.ProductVariantIn,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    product = _get_owned_product(db, shop, product_id)
+    variant = models.ProductVariant(product_id=product.id, **payload.model_dump())
+    db.add(variant)
+    product.has_variants = True
+    db.commit()
+    db.refresh(variant)
+    return variant
+
+
+@router.put("/{product_id}/variantes/{variant_id}", response_model=schemas.ProductVariantOut)
+def update_variant(
+    product_id: int,
+    variant_id: int,
+    payload: schemas.ProductVariantIn,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    variant = _get_owned_variant(db, shop, product_id, variant_id)
+    for field, value in payload.model_dump().items():
+        setattr(variant, field, value)
+    db.commit()
+    db.refresh(variant)
+    return variant
+
+
+@router.delete("/{product_id}/variantes/{variant_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_variant(
+    product_id: int,
+    variant_id: int,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    variant = _get_owned_variant(db, shop, product_id, variant_id)
+    db.delete(variant)
+    db.flush()
+    reste = db.query(models.ProductVariant).filter(models.ProductVariant.product_id == product_id).count()
+    if reste == 0:
+        product = db.get(models.Product, product_id)
+        product.has_variants = False
+    db.commit()
+
+
+# ---------- Avis clients (modération côté boutique) ----------
+@router.get("/{product_id}/avis", response_model=list[schemas.ProductReviewOut])
+def list_product_reviews(
+    product_id: int,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    _get_owned_product(db, shop, product_id)
+    return (
+        db.query(models.ProductReview)
+        .filter(models.ProductReview.product_id == product_id)
+        .order_by(models.ProductReview.created_at.desc())
+        .all()
+    )
+
+
+@router.patch("/{product_id}/avis/{review_id}", response_model=schemas.ProductReviewOut)
+def moderate_product_review(
+    product_id: int,
+    review_id: int,
+    approuve: bool,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    _get_owned_product(db, shop, product_id)
+    review = (
+        db.query(models.ProductReview)
+        .filter(models.ProductReview.id == review_id, models.ProductReview.product_id == product_id)
+        .first()
+    )
+    if review is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avis introuvable")
+    review.approuve = approuve
+    db.commit()
+    db.refresh(review)
+    return review
+
+
+@router.delete("/{product_id}/avis/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_product_review(
+    product_id: int,
+    review_id: int,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    _get_owned_product(db, shop, product_id)
+    review = (
+        db.query(models.ProductReview)
+        .filter(models.ProductReview.id == review_id, models.ProductReview.product_id == product_id)
+        .first()
+    )
+    if review is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avis introuvable")
+    db.delete(review)
+    db.commit()

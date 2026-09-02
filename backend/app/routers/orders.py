@@ -2,12 +2,15 @@ import secrets
 import string
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_shop, require_module
+from ..invoice import generate_invoice_pdf
 from ..notifications import notify
+from .coupons import validate_and_apply_coupon
 
 router = APIRouter(prefix="/api/commandes", tags=["commandes"], dependencies=[Depends(require_module("commandes"))])
 
@@ -107,33 +110,63 @@ def create_order(
         )
         if product is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Produit {item.product_id} invalide")
-        if product.stock < item.quantite:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Stock insuffisant pour « {product.nom} » (disponible : {product.stock})",
-            )
 
-        stock_avant = product.stock
-        product.stock -= item.quantite
+        variant: models.ProductVariant | None = None
+        if item.variant_id is not None:
+            variant = (
+                db.query(models.ProductVariant)
+                .filter(models.ProductVariant.id == item.variant_id, models.ProductVariant.product_id == product.id)
+                .first()
+            )
+            if variant is None or not variant.actif:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Variante invalide pour « {product.nom} »")
+        elif product.has_variants:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"« {product.nom} » nécessite le choix d'une variante")
+
+        prix_unitaire = variant.prix_vente if variant else product.effective_price
+
+        if variant:
+            if variant.stock < item.quantite:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Stock insuffisant pour « {product.nom} » ({variant.nom}) (disponible : {variant.stock})",
+                )
+            variant.stock -= item.quantite
+        else:
+            if product.stock < item.quantite:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Stock insuffisant pour « {product.nom} » (disponible : {product.stock})",
+                )
+            stock_avant = product.stock
+            product.stock -= item.quantite
+            if product.stock <= product.seuil_alerte < stock_avant:
+                notify(
+                    db, shop.id, models.NotificationType.STOCK_FAIBLE,
+                    f"Stock faible : « {product.nom} » (reste {product.stock})",
+                )
+
         db.add(models.StockMovement(product_id=product.id, type=models.StockMovementType.VENTE, quantite=-item.quantite))
-
-        if product.stock <= product.seuil_alerte < stock_avant:
-            notify(
-                db, shop.id, models.NotificationType.STOCK_FAIBLE,
-                f"Stock faible : « {product.nom} » (reste {product.stock})",
-            )
 
         order_item = models.OrderItem(
             order_id=order.id,
             product_id=product.id,
+            variant_id=variant.id if variant else None,
             quantite=item.quantite,
-            prix_unitaire=product.effective_price,
+            prix_unitaire=prix_unitaire,
             prix_achat_unitaire=product.prix_achat,
         )
         db.add(order_item)
-        sous_total += product.effective_price * item.quantite
+        sous_total += prix_unitaire * item.quantite
 
-    order.total = max(sous_total - payload.reduction, 0) + payload.frais_livraison
+    reduction_totale = payload.reduction
+    if payload.coupon_code:
+        coupon, discount = validate_and_apply_coupon(db, shop.id, payload.coupon_code, sous_total)
+        order.coupon_id = coupon.id
+        reduction_totale += discount
+
+    order.reduction = reduction_totale
+    order.total = max(sous_total - reduction_totale, 0) + payload.frais_livraison
     notify(
         db, shop.id, models.NotificationType.NOUVELLE_COMMANDE,
         f"Nouvelle commande {order.numero} de {customer.nom} — {order.total:.0f} FCFA",
@@ -147,6 +180,17 @@ def create_order(
 @router.get("/{order_id}", response_model=schemas.OrderOut)
 def get_order(order_id: int, shop: models.Shop = Depends(get_current_shop), db: Session = Depends(get_db)):
     return _get_owned_order(db, shop, order_id)
+
+
+@router.get("/{order_id}/facture.pdf")
+def get_order_invoice(order_id: int, shop: models.Shop = Depends(get_current_shop), db: Session = Depends(get_db)):
+    order = _get_owned_order(db, shop, order_id)
+    pdf_bytes = generate_invoice_pdf(order, shop)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="facture-{order.numero}.pdf"'},
+    )
 
 
 @router.patch("/{order_id}/statut", response_model=schemas.OrderOut)
@@ -166,15 +210,20 @@ def update_order_status(
 
     if payload.statut in RESTOCKING_STATUSES and order.statut not in RESTOCKING_STATUSES:
         for item in order.items:
-            product = db.get(models.Product, item.product_id)
-            if product is not None:
-                product.stock += item.quantite
-                db.add(models.StockMovement(
-                    product_id=product.id,
-                    type=models.StockMovementType.ANNULATION,
-                    quantite=item.quantite,
-                    motif=f"Commande {order.numero} : {payload.statut.value}",
-                ))
+            if item.variant_id is not None:
+                variant = db.get(models.ProductVariant, item.variant_id)
+                if variant is not None:
+                    variant.stock += item.quantite
+            else:
+                product = db.get(models.Product, item.product_id)
+                if product is not None:
+                    product.stock += item.quantite
+            db.add(models.StockMovement(
+                product_id=item.product_id,
+                type=models.StockMovementType.ANNULATION,
+                quantite=item.quantite,
+                motif=f"Commande {order.numero} : {payload.statut.value}",
+            ))
 
     order.statut = payload.statut
     db.commit()

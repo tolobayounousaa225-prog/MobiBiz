@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { href: "commandes.html", label: "Commandes", key: "commandes", show: (u) => hasAccess(u, "commandes") },
   { href: "finances.html", label: "Finances", key: "finances", show: (u) => hasAccess(u, "finance") },
   { href: "marketing.html", label: "Marketing", key: "marketing", show: (u) => u.role === "owner" },
+  { href: "coupons.html", label: "Codes promo", key: "coupons", show: (u) => u.role === "owner" },
   { href: "rapports.html", label: "Rapports", key: "rapports", show: (u) => u.role === "owner" || hasAccess(u, "produits") || hasAccess(u, "finance") },
   { href: "employes.html", label: "Employés", key: "employes", show: (u) => u.role === "owner" },
   { href: "plans.html", label: "Mon abonnement", key: "plans", show: (u) => u.role === "owner" },
@@ -69,6 +70,19 @@ function renderLayout(activeKey, pageTitle, pageSub) {
     Auth.clear();
     window.location.href = "index.html";
   });
+
+  if (Auth.isImpersonating()) {
+    document.body.insertAdjacentHTML("afterbegin", `
+      <div style="background:#e0a323;color:#1a1d29;padding:8px 16px;text-align:center;font-size:13.5px;font-weight:600;position:sticky;top:0;z-index:70">
+        👁️ Connecté en tant que « ${Auth.impersonatingShopName()} » (accès admin)
+        <button id="stopImpersonationBtn" style="margin-left:12px;background:#1a1d29;color:#fff;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12.5px">Quitter</button>
+      </div>
+    `);
+    document.getElementById("stopImpersonationBtn").addEventListener("click", () => {
+      Auth.stopImpersonation();
+      window.location.href = "admin-dashboard.html";
+    });
+  }
 
   const sidebar = document.getElementById("sidebar");
   const backdrop = document.getElementById("sidebarBackdrop");

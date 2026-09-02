@@ -7,6 +7,7 @@ from .routers import (
     admin,
     auth,
     categories,
+    coupons,
     customers,
     dashboard,
     employees,
@@ -38,6 +39,7 @@ app.include_router(auth.router)
 app.include_router(shops.router)
 app.include_router(categories.router)
 app.include_router(products.router)
+app.include_router(coupons.router)
 app.include_router(customers.router)
 app.include_router(orders.router)
 app.include_router(stock.router)

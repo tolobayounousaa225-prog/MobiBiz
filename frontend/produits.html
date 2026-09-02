@@ -77,6 +77,23 @@
             </div>
           </div>
 
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+            <input type="checkbox" id="p_has_variants" style="width:auto"> Ce produit a des variantes (taille, couleur…)
+          </label>
+          <p style="font-size:12.5px;color:var(--ink-soft);margin:2px 0 0">Si activé, le stock et le prix de vente ci-dessus ne sont plus utilisés à la vente — chaque variante a les siens.</p>
+
+          <div id="variantsSection" class="hidden" style="margin-top:14px;border:1px solid var(--border);border-radius:8px;padding:12px">
+            <h3 style="margin:0 0 10px;font-size:14px">Variantes</h3>
+            <div id="variantsList" style="margin-bottom:10px"></div>
+            <div id="variantsSaveFirstNotice" class="empty" style="padding:10px">Enregistrez d'abord le produit pour ajouter des variantes.</div>
+            <div id="variantsAddForm" class="hidden" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+              <div style="flex:2;min-width:120px"><label style="margin-top:0" for="v_nom">Nom</label><input type="text" id="v_nom" placeholder="Ex: Rouge - L"></div>
+              <div style="flex:1;min-width:90px"><label style="margin-top:0" for="v_prix">Prix (FCFA)</label><input type="number" id="v_prix" min="0" step="1"></div>
+              <div style="flex:1;min-width:80px"><label style="margin-top:0" for="v_stock">Stock</label><input type="number" id="v_stock" min="0" step="1"></div>
+              <button type="button" class="btn small" id="addVariantBtn">Ajouter</button>
+            </div>
+          </div>
+
           <label for="p_description">Description (optionnel)</label>
           <textarea id="p_description" rows="2"></textarea>
 
@@ -107,6 +124,14 @@
           <button type="submit" class="btn">Ajouter</button>
         </form>
         <div id="categoryList"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="reviewsModalBackdrop">
+      <div class="modal">
+        <button class="modal-close" id="closeReviewsModal">&times;</button>
+        <h2 id="reviewsModalTitle">Avis</h2>
+        <div id="reviewsList"></div>
       </div>
     </div>
 
@@ -203,13 +228,19 @@
             : fmtFCFA(p.prix_vente)}</td>
           <td>${stockBadge}</td>
           <td>${p.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Inactif</span>`}</td>
-          <td><button class="btn secondary small" data-edit="${p.id}">Modifier</button></td>
+          <td style="display:flex;gap:6px">
+            <button class="btn secondary small" data-edit="${p.id}">Modifier</button>
+            <button class="btn secondary small" data-avis="${p.id}">Avis</button>
+          </td>
         </tr>
       `;
     }).join("");
 
     body.querySelectorAll("[data-edit]").forEach((btn) => {
       btn.addEventListener("click", () => openProductModal(products.find((p) => p.id === Number(btn.dataset.edit))));
+    });
+    body.querySelectorAll("[data-avis]").forEach((btn) => {
+      btn.addEventListener("click", () => openReviewsModal(products.find((p) => p.id === Number(btn.dataset.avis))));
     });
   }
 
@@ -237,6 +268,124 @@
     });
   }
 
+  function renderVariantsList(variants) {
+    const box = document.getElementById("variantsList");
+    if (!variants || variants.length === 0) {
+      box.innerHTML = `<p class="empty" style="padding:8px">Aucune variante</p>`;
+      return;
+    }
+    box.innerHTML = variants.map((v) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px">
+        <span>${v.nom} — ${fmtFCFA(v.prix_vente)} · stock ${v.stock}</span>
+        <button type="button" class="btn danger small" data-del-variant="${v.id}">Supprimer</button>
+      </div>
+    `).join("");
+    box.querySelectorAll("[data-del-variant]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Supprimer cette variante ?")) return;
+        const productId = document.getElementById("productId").value;
+        try {
+          await api(`/api/produits/${productId}/variantes/${btn.dataset.delVariant}`, { method: "DELETE" });
+          await refreshVariants(productId);
+          await loadProducts();
+          toast("Variante supprimée", "success");
+        } catch (err) { toast(err.message, "error"); }
+      });
+    });
+  }
+
+  async function refreshVariants(productId) {
+    const variants = await api(`/api/produits/${productId}/variantes`);
+    renderVariantsList(variants);
+    return variants;
+  }
+
+  document.getElementById("addVariantBtn").addEventListener("click", async () => {
+    const productId = document.getElementById("productId").value;
+    const nom = document.getElementById("v_nom").value.trim();
+    const prix_vente = Number(document.getElementById("v_prix").value);
+    const stock = Number(document.getElementById("v_stock").value || 0);
+    if (!nom || !prix_vente) { toast("Nom et prix requis", "error"); return; }
+    try {
+      await api(`/api/produits/${productId}/variantes`, { method: "POST", body: { nom, prix_vente, stock } });
+      document.getElementById("v_nom").value = "";
+      document.getElementById("v_prix").value = "";
+      document.getElementById("v_stock").value = "";
+      await refreshVariants(productId);
+      await loadProducts();
+      toast("Variante ajoutée", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  function toggleVariantsSection(hasVariants, product) {
+    document.getElementById("variantsSection").classList.toggle("hidden", !hasVariants);
+    const canManage = hasVariants && product;
+    document.getElementById("variantsSaveFirstNotice").classList.toggle("hidden", !hasVariants || !!product);
+    document.getElementById("variantsAddForm").classList.toggle("hidden", !canManage);
+    if (canManage) refreshVariants(product.id);
+    else document.getElementById("variantsList").innerHTML = "";
+  }
+
+  document.getElementById("p_has_variants").addEventListener("change", (e) => {
+    const id = document.getElementById("productId").value;
+    toggleVariantsSection(e.target.checked, id ? { id } : null);
+  });
+
+  async function openReviewsModal(product) {
+    document.getElementById("reviewsModalTitle").textContent = `Avis — ${product.nom}`;
+    document.getElementById("reviewsModalBackdrop").classList.remove("hidden");
+    const list = document.getElementById("reviewsList");
+    list.innerHTML = `<p class="empty">Chargement…</p>`;
+    try {
+      const reviews = await api(`/api/produits/${product.id}/avis`);
+      list.innerHTML = reviews.length === 0
+        ? `<p class="empty">Aucun avis pour ce produit</p>`
+        : reviews.map((r) => `
+            <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <strong>${r.nom_client}</strong>
+                <span>${"★".repeat(r.note)}${"☆".repeat(5 - r.note)}</span>
+              </div>
+              ${r.commentaire ? `<p style="margin:4px 0;font-size:13.5px">${r.commentaire}</p>` : ""}
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <span style="font-size:11px;color:var(--ink-soft)">${fmtDate(r.created_at)}</span>
+                <div style="display:flex;gap:6px">
+                  ${r.approuve
+                    ? `<span class="badge green">Publié</span> <button class="btn secondary small" data-hide="${r.id}">Masquer</button>`
+                    : `<button class="btn small" data-approve="${r.id}">Publier</button>`}
+                  <button class="btn danger small" data-del-review="${r.id}">Supprimer</button>
+                </div>
+              </div>
+            </div>
+          `).join("");
+      list.querySelectorAll("[data-approve]").forEach((btn) => btn.addEventListener("click", () => moderateReview(product, btn.dataset.approve, true)));
+      list.querySelectorAll("[data-hide]").forEach((btn) => btn.addEventListener("click", () => moderateReview(product, btn.dataset.hide, false)));
+      list.querySelectorAll("[data-del-review]").forEach((btn) => btn.addEventListener("click", () => deleteReview(product, btn.dataset.delReview)));
+    } catch (err) {
+      list.innerHTML = `<p class="empty">${err.message}</p>`;
+    }
+  }
+
+  async function moderateReview(product, reviewId, approuve) {
+    try {
+      await api(`/api/produits/${product.id}/avis/${reviewId}?approuve=${approuve}`, { method: "PATCH" });
+      await openReviewsModal(product);
+      toast(approuve ? "Avis publié" : "Avis masqué", "success");
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function deleteReview(product, reviewId) {
+    if (!confirm("Supprimer cet avis ?")) return;
+    try {
+      await api(`/api/produits/${product.id}/avis/${reviewId}`, { method: "DELETE" });
+      await openReviewsModal(product);
+      toast("Avis supprimé", "success");
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  document.getElementById("closeReviewsModal").addEventListener("click", () =>
+    document.getElementById("reviewsModalBackdrop").classList.add("hidden"));
+
   function openProductModal(product) {
     document.getElementById("productModalTitle").textContent = product ? "Modifier le produit" : "Nouveau produit";
     document.getElementById("productId").value = product ? product.id : "";
@@ -252,6 +401,8 @@
     renderPhotoPreview(product);
     document.getElementById("p_promo_actif").checked = product ? !!product.promo_actif : false;
     document.getElementById("p_prix_promo").value = product && product.prix_promo != null ? product.prix_promo : "";
+    document.getElementById("p_has_variants").checked = product ? !!product.has_variants : false;
+    toggleVariantsSection(product ? !!product.has_variants : false, product);
     document.getElementById("deleteProductBtn").classList.toggle("hidden", !product);
     document.getElementById("productModalBackdrop").classList.remove("hidden");
   }
@@ -275,6 +426,7 @@
       actif: true,
       promo_actif: document.getElementById("p_promo_actif").checked,
       prix_promo: document.getElementById("p_prix_promo").value ? Number(document.getElementById("p_prix_promo").value) : null,
+      has_variants: document.getElementById("p_has_variants").checked,
     };
     try {
       const savedProduct = id
@@ -286,6 +438,16 @@
         const formData = new FormData();
         formData.append("file", photoFile);
         await api(`/api/produits/${savedProduct.id}/image`, { method: "POST", formData });
+      }
+
+      if (!id && payload.has_variants) {
+        // Produit tout juste créé : le gestionnaire de variantes n'était pas
+        // encore actif faute d'ID — le rouvrir en mode édition pour les ajouter.
+        document.getElementById("productModalBackdrop").classList.add("hidden");
+        await loadProducts();
+        openProductModal(products.find((p) => p.id === savedProduct.id));
+        toast("Produit créé — ajoutez ses variantes", "success");
+        return;
       }
 
       document.getElementById("productModalBackdrop").classList.add("hidden");

@@ -9,6 +9,21 @@ const Auth = {
   requireAuth() {
     if (!this.getToken()) window.location.href = "index.html";
   },
+  // "Connexion en tant que" (admin -> propriétaire) : on garde le token admin de
+  // côté pour pouvoir revenir, plutôt que de forcer une reconnexion.
+  startImpersonation(shopToken, shopName) {
+    localStorage.setItem("mobibiz_admin_backup_token", this.getToken());
+    localStorage.setItem("mobibiz_impersonating_shop", shopName);
+    this.setToken(shopToken);
+  },
+  isImpersonating() { return !!localStorage.getItem("mobibiz_admin_backup_token"); },
+  impersonatingShopName() { return localStorage.getItem("mobibiz_impersonating_shop") || ""; },
+  stopImpersonation() {
+    const backup = localStorage.getItem("mobibiz_admin_backup_token");
+    if (backup) this.setToken(backup);
+    localStorage.removeItem("mobibiz_admin_backup_token");
+    localStorage.removeItem("mobibiz_impersonating_shop");
+  },
 };
 
 function fmtFCFA(n) {

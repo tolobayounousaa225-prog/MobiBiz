@@ -39,6 +39,7 @@ class RegisterIn(BaseModel):
     boutique_nom: str
     security_question: str
     security_answer: str = Field(min_length=2)
+    referral_code: str | None = None
 
 
 class LoginIn(BaseModel):
@@ -110,6 +111,8 @@ class ShopOut(ShopIn):
     abonnement_plan: SubscriptionPlan
     prochain_paiement_le: date_type | None = None
     essai_expire_le: date_type | None = None
+    referral_code: str
+    nombre_parrainages: int = 0
     created_at: datetime
 
 
@@ -158,12 +161,20 @@ class ProductVariantOut(ProductVariantIn):
     created_at: datetime
 
 
+class ProductImageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    image_url: str
+    ordre: int
+
+
 class ProductOut(ProductIn):
     model_config = ConfigDict(from_attributes=True)
     id: int
     shop_id: int
     image_url: str | None = None
     variants: list[ProductVariantOut] = []
+    images: list[ProductImageOut] = []
     created_at: datetime
 
 
@@ -426,6 +437,7 @@ class PublicProductOut(BaseModel):
     category_id: int | None = None
     has_variants: bool = False
     variants: list[PublicProductVariantOut] = []
+    images: list[ProductImageOut] = []
     note_moyenne: float | None = None
     nombre_avis: int = 0
 
@@ -495,6 +507,17 @@ class AdminStatsOut(BaseModel):
     utilisateurs_total: int
     commandes_total: int
     chiffre_affaires_total: float
+    parrainages_total: int = 0
+
+
+class AdminBulkStatusIn(BaseModel):
+    shop_ids: list[int] = Field(min_length=1)
+    abonnement_statut: SubscriptionStatus
+
+
+class AdminBulkActionOut(BaseModel):
+    mis_a_jour: int
+    boutiques: list[str]
 
 
 class SubscriptionPaymentIn(BaseModel):

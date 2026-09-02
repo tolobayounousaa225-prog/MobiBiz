@@ -1,7 +1,11 @@
 from datetime import date as date_type
 from datetime import datetime, timedelta
 
+import csv
+import io
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -10,6 +14,7 @@ from ..audit import log_admin_action
 from ..database import get_db
 from ..deps import require_admin, require_super_admin
 from ..plans import PAYMENT_VALIDITY_DAYS, PLAN_FEATURES
+from ..security_utils import csv_safe
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -121,6 +126,7 @@ def get_statistics(db: Session = Depends(get_db)):
         utilisateurs_total=db.query(models.User).filter(models.User.role != models.UserRole.ADMIN).count(),
         commandes_total=len(orders),
         chiffre_affaires_total=sum(o.total for o in orders),
+        parrainages_total=sum(1 for s in shops if s.referred_by_shop_id is not None),
     )
 
 
@@ -402,3 +408,63 @@ def impersonate_shop(
                       f"{shop.nom} (propriétaire #{shop.owner_id})")
     db.commit()
     return schemas.ImpersonateOut(access_token=token, boutique_nom=shop.nom)
+
+
+@router.post("/boutiques/actions-groupees", response_model=schemas.AdminBulkActionOut)
+def bulk_update_shop_status(
+    payload: schemas.AdminBulkStatusIn,
+    admin: models.User = Depends(require_super_admin), db: Session = Depends(get_db),
+):
+    shops = db.query(models.Shop).filter(models.Shop.id.in_(payload.shop_ids)).all()
+    for shop in shops:
+        shop.abonnement_statut = payload.abonnement_statut
+    log_admin_action(
+        db, admin, "changement_statut_groupe", "boutique", None,
+        f"{len(shops)} boutique(s) -> {payload.abonnement_statut.value} ({', '.join(s.nom for s in shops)})",
+    )
+    db.commit()
+    return schemas.AdminBulkActionOut(mis_a_jour=len(shops), boutiques=[s.nom for s in shops])
+
+
+@router.get("/export/boutiques.csv")
+def export_shops_csv(db: Session = Depends(get_db)):
+    shops = db.query(models.Shop).order_by(models.Shop.created_at.desc()).all()
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    writer.writerow([
+        "ID", "Boutique", "Propriétaire", "Téléphone", "Plan", "Statut",
+        "Essai expire le", "Prochain paiement le", "Inscrite le",
+    ])
+    for s in shops:
+        writer.writerow([
+            s.id, csv_safe(s.nom), csv_safe(f"{s.owner.prenom} {s.owner.nom}"), csv_safe(s.owner.telephone),
+            s.abonnement_plan.value, s.abonnement_statut.value,
+            s.essai_expire_le.isoformat() if s.essai_expire_le else "",
+            s.prochain_paiement_le.isoformat() if s.prochain_paiement_le else "",
+            s.created_at.date().isoformat(),
+        ])
+    return StreamingResponse(
+        iter([buffer.getvalue()]), media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="boutiques.csv"'},
+    )
+
+
+@router.get("/export/paiements.csv")
+def export_payments_csv(db: Session = Depends(get_db)):
+    payments = (
+        db.query(models.SubscriptionPayment)
+        .order_by(models.SubscriptionPayment.date_paiement.desc())
+        .all()
+    )
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    writer.writerow(["Boutique", "Montant (FCFA)", "Date de paiement", "Enregistré le"])
+    for p in payments:
+        writer.writerow([
+            csv_safe(p.shop.nom) if p.shop else "", p.montant,
+            p.date_paiement.isoformat(), p.created_at.date().isoformat(),
+        ])
+    return StreamingResponse(
+        iter([buffer.getvalue()]), media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="paiements.csv"'},
+    )

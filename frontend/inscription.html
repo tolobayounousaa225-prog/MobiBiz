@@ -45,6 +45,9 @@
       <label for="security_answer">Votre réponse</label>
       <input type="text" id="security_answer" required minlength="2">
 
+      <label for="referral_code">Code de parrainage (optionnel)</label>
+      <input type="text" id="referral_code" placeholder="Ex: A1B2C3" style="text-transform:uppercase">
+
       <div class="error-msg" id="errorMsg"></div>
 
       <div class="form-actions">
@@ -61,6 +64,9 @@
 <script src="assets/js/api.js"></script>
 <script>
   if (Auth.getToken()) window.location.href = "dashboard.html";
+
+  const parrain = new URLSearchParams(location.search).get("parrain");
+  if (parrain) document.getElementById("referral_code").value = parrain;
 
   api("/api/auth/questions-securite").then(({ questions }) => {
     document.getElementById("security_question").innerHTML =
@@ -87,6 +93,7 @@
           password: document.getElementById("password").value,
           security_question: document.getElementById("security_question").value,
           security_answer: document.getElementById("security_answer").value.trim(),
+          referral_code: document.getElementById("referral_code").value.trim() || null,
         },
       });
       Auth.setToken(data.access_token);

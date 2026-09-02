@@ -11,7 +11,7 @@
 <script>Auth.requireAuth();</script>
 <script src="assets/js/layout.js"></script>
 <script>
-  renderLayout("rapports", "Rapports", "Exportez vos données au format CSV");
+  renderLayout("rapports", "Rapports", "Exportez vos données en CSV ou en PDF");
 
   const content = document.getElementById("pageContent");
   content.innerHTML = `
@@ -19,6 +19,7 @@
       <h2>Rapport des ventes</h2>
       <p style="color:var(--ink-soft);margin-top:0">Liste détaillée de toutes les commandes, ligne par produit.</p>
       <button class="btn" data-export="ventes.csv">Télécharger le CSV</button>
+      <button class="btn secondary" data-export="ventes.pdf" style="margin-left:8px">Rapport PDF</button>
     </div>
     <div class="card">
       <h2>Rapport du stock</h2>
@@ -29,6 +30,11 @@
       <h2>Rapport clients</h2>
       <p style="color:var(--ink-soft);margin-top:0">Fichier client complet.</p>
       <button class="btn" data-export="clients.csv">Télécharger le CSV</button>
+    </div>
+    <div class="card">
+      <h2>Rapport financier</h2>
+      <p style="color:var(--ink-soft);margin-top:0">Chiffre d'affaires, coût des produits, dépenses et bénéfice, avec le détail par catégorie de dépense.</p>
+      <button class="btn secondary" data-export="finances.pdf">Rapport PDF</button>
     </div>
   `;
 

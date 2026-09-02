@@ -31,11 +31,20 @@
           <option value="essai">Essai</option>
           <option value="suspendu">Suspendu</option>
         </select>
+        <div class="spacer"></div>
+        <button class="btn secondary small" id="exportShopsBtn">Exporter boutiques (CSV)</button>
+        <button class="btn secondary small" id="exportPaymentsBtn">Exporter paiements (CSV)</button>
+      </div>
+      <div id="bulkActionBar" class="hidden" style="display:flex;align-items:center;gap:10px;background:#fff1e2;border:1px solid var(--orange);border-radius:8px;padding:10px 14px;margin-bottom:14px">
+        <span id="bulkCount" style="font-size:13.5px;font-weight:600"></span>
+        <div class="spacer"></div>
+        <button class="btn secondary small" id="bulkReactivateBtn">Réactiver la sélection</button>
+        <button class="btn danger small" id="bulkSuspendBtn">Suspendre la sélection</button>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Boutique</th><th>Propriétaire</th><th>Plan</th><th>Statut</th><th>Prochain paiement</th><th>Produits</th><th>Commandes</th><th>CA</th><th>Inscrite le</th><th></th></tr></thead>
-          <tbody id="shopsBody"><tr><td colspan="10" class="empty">Chargement…</td></tr></tbody>
+          <thead><tr><th><input type="checkbox" id="selectAllCheckbox" style="width:auto"></th><th>Boutique</th><th>Propriétaire</th><th>Plan</th><th>Statut</th><th>Prochain paiement</th><th>Produits</th><th>Commandes</th><th>CA</th><th>Inscrite le</th><th></th></tr></thead>
+          <tbody id="shopsBody"><tr><td colspan="11" class="empty">Chargement…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -88,6 +97,7 @@
   let shops = [];
   let currentShopId = null;
   let isSuperAdmin = false;
+  let selectedIds = new Set();
 
   function renderShops() {
     const q = document.getElementById("searchInput").value.toLowerCase();
@@ -97,13 +107,18 @@
     );
     if (statusFilter) rows = rows.filter((s) => s.abonnement_statut === statusFilter);
 
+    const visibleIds = new Set(rows.map((s) => s.id));
+    selectedIds.forEach((id) => { if (!visibleIds.has(id)) selectedIds.delete(id); });
+
     const body = document.getElementById("shopsBody");
     if (rows.length === 0) {
-      body.innerHTML = `<tr><td colspan="10" class="empty">Aucune boutique trouvée</td></tr>`;
+      body.innerHTML = `<tr><td colspan="11" class="empty">Aucune boutique trouvée</td></tr>`;
+      renderBulkBar();
       return;
     }
     body.innerHTML = rows.map((s) => `
       <tr>
+        <td><input type="checkbox" class="row-checkbox" data-id="${s.id}" style="width:auto" ${selectedIds.has(s.id) ? "checked" : ""}></td>
         <td>${s.nom}</td>
         <td>${s.proprietaire_nom}<br><span style="color:var(--ink-soft);font-size:12px">${s.proprietaire_telephone}</span></td>
         <td>${PLAN_LABELS[s.abonnement_plan] || s.abonnement_plan}</td>
@@ -120,7 +135,66 @@
     body.querySelectorAll("[data-manage]").forEach((btn) => {
       btn.addEventListener("click", () => openShopModal(shops.find((s) => s.id === Number(btn.dataset.manage))));
     });
+    body.querySelectorAll(".row-checkbox").forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const id = Number(cb.dataset.id);
+        if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+        renderBulkBar();
+      });
+    });
+    document.getElementById("selectAllCheckbox").checked = rows.length > 0 && rows.every((s) => selectedIds.has(s.id));
+    renderBulkBar();
   }
+
+  function renderBulkBar() {
+    const bar = document.getElementById("bulkActionBar");
+    const show = isSuperAdmin && selectedIds.size > 0;
+    bar.classList.toggle("hidden", !show);
+    if (show) document.getElementById("bulkCount").textContent = `${selectedIds.size} boutique(s) sélectionnée(s)`;
+  }
+
+  document.getElementById("selectAllCheckbox").addEventListener("change", (e) => {
+    document.querySelectorAll(".row-checkbox").forEach((cb) => {
+      cb.checked = e.target.checked;
+      const id = Number(cb.dataset.id);
+      if (e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+    });
+    renderBulkBar();
+  });
+
+  async function runBulkStatus(statut) {
+    const label = statut === "suspendu" ? "suspendre" : "réactiver";
+    if (!confirm(`Confirmer : ${label} ${selectedIds.size} boutique(s) ?`)) return;
+    try {
+      const result = await api("/api/admin/boutiques/actions-groupees", {
+        method: "POST",
+        body: { shop_ids: Array.from(selectedIds), abonnement_statut: statut },
+      });
+      selectedIds.clear();
+      await loadShops();
+      toast(`${result.mis_a_jour} boutique(s) mise(s) à jour`, "success");
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  document.getElementById("bulkSuspendBtn").addEventListener("click", () => runBulkStatus("suspendu"));
+  document.getElementById("bulkReactivateBtn").addEventListener("click", () => runBulkStatus("actif"));
+
+  async function downloadCsv(path, filename) {
+    try {
+      const blob = await api(path, { isBlob: true });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  document.getElementById("exportShopsBtn").addEventListener("click", () => downloadCsv("/api/admin/export/boutiques.csv", "boutiques.csv"));
+  document.getElementById("exportPaymentsBtn").addEventListener("click", () => downloadCsv("/api/admin/export/paiements.csv", "paiements.csv"));
 
   async function loadPayments(shopId) {
     const body = document.getElementById("paymentsBody");

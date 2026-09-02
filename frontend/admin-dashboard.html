@@ -23,6 +23,7 @@
       <div class="kpi"><div class="label">Utilisateurs</div><div class="value">—</div></div>
       <div class="kpi"><div class="label">Commandes traitées</div><div class="value">—</div></div>
       <div class="kpi"><div class="label">CA total plateforme</div><div class="value orange">—</div></div>
+      <div class="kpi"><div class="label">Parrainages</div><div class="value">—</div></div>
     </div>
     <div class="card">
       <h2>Revenus plateforme</h2>
@@ -123,6 +124,7 @@
     values[4].textContent = stats.utilisateurs_total;
     values[5].textContent = stats.commandes_total;
     values[6].textContent = fmtFCFA(stats.chiffre_affaires_total);
+    values[7].textContent = stats.parrainages_total;
 
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const due = shops.filter((s) => {

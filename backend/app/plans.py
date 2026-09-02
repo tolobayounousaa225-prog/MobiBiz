@@ -76,6 +76,7 @@ PLAN_FEATURES: dict[SubscriptionPlan, dict] = {
 
 TRIAL_DAYS = 14
 PAYMENT_VALIDITY_DAYS = 30
+REFERRAL_BONUS_DAYS = 7
 
 
 def plan_limit(plan: SubscriptionPlan, key: str):

@@ -200,6 +200,8 @@ class Shop(Base):
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     wave_payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
     boutique_publique_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    referral_code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    referred_by_shop_id: Mapped[int | None] = mapped_column(ForeignKey("shops.id"), nullable=True)
     abonnement_statut: Mapped[SubscriptionStatus] = mapped_column(Enum(SubscriptionStatus), default=SubscriptionStatus.ESSAI)
     abonnement_plan: Mapped[SubscriptionPlan] = mapped_column(Enum(SubscriptionPlan), default=SubscriptionPlan.FREE)
     prochain_paiement_le: Mapped[date_type | None] = mapped_column(Date, nullable=True)
@@ -215,6 +217,18 @@ class Shop(Base):
     notifications: Mapped[list["Notification"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     abonnement_paiements: Mapped[list["SubscriptionPayment"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     tickets: Mapped[list["SupportTicket"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+
+    @property
+    def nombre_parrainages(self) -> int:
+        """Nombre de boutiques inscrites avec le code de parrainage de celle-ci.
+        Calculé à la volée via la session déjà ouverte plutôt qu'une relation ORM
+        dédiée — évite d'alourdir le modèle pour un simple compteur d'affichage."""
+        from sqlalchemy.orm import object_session
+
+        session = object_session(self)
+        if session is None:
+            return 0
+        return session.query(Shop).filter(Shop.referred_by_shop_id == self.id).count()
 
 
 class Category(Base):
@@ -253,6 +267,9 @@ class Product(Base):
     stock_movements: Mapped[list["StockMovement"]] = relationship(back_populates="product", cascade="all, delete-orphan")
     variants: Mapped[list["ProductVariant"]] = relationship(back_populates="product", cascade="all, delete-orphan")
     reviews: Mapped[list["ProductReview"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    images: Mapped[list["ProductImage"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan", order_by="ProductImage.ordre"
+    )
 
     @property
     def image_url(self) -> str | None:
@@ -283,6 +300,26 @@ class ProductVariant(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     product: Mapped["Product"] = relationship(back_populates="variants")
+
+
+class ProductImage(Base):
+    """Photo supplémentaire de la galerie produit — distincte de Product.image_path
+    (la photo principale, affichée dans les listes) : la galerie ne montre que des
+    photos additionnelles sur la fiche détaillée."""
+
+    __tablename__ = "product_images"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    image_path: Mapped[str] = mapped_column(String(300))
+    ordre: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    product: Mapped["Product"] = relationship(back_populates="images")
+
+    @property
+    def image_url(self) -> str:
+        return f"/api/produits/images/{self.id}"
 
 
 class ProductReview(Base):

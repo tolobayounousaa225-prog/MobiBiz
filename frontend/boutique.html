@@ -23,6 +23,7 @@
   const content = document.getElementById("pageContent");
   content.innerHTML = `
     <div class="card" style="max-width:560px" id="subscriptionCard"></div>
+    <div class="card" style="max-width:560px" id="referralCard"></div>
     <div class="card" style="max-width:560px">
       <form id="shopForm">
         <label for="s_nom">Nom de la boutique</label>
@@ -120,9 +121,33 @@
     } catch (_) { /* pas encore configuré par l'administrateur */ }
   }
 
+  function renderReferralCard(shop) {
+    const inscriptionUrl = `${location.origin}${location.pathname.replace("boutique.html", "inscription.html")}?parrain=${shop.referral_code}`;
+    const message = `Rejoins MobiBiz pour gérer ta boutique en ligne ! Inscris-toi avec mon code de parrainage ${shop.referral_code} : ${inscriptionUrl}`;
+    document.getElementById("referralCard").innerHTML = `
+      <h2>Programme de parrainage</h2>
+      <p style="color:var(--ink-soft);font-size:13.5px;margin-top:0">
+        Partagez votre code avec d'autres commerçants : à leur inscription, vous gagnez
+        chacun 7 jours supplémentaires sur votre abonnement en cours.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input type="text" readonly value="${shop.referral_code}" style="flex:1;font-weight:700;font-size:16px;letter-spacing:1px" onclick="this.select()">
+        <button type="button" class="btn secondary small" id="copyReferralBtn">Copier le message</button>
+      </div>
+      <p style="font-size:13px;color:var(--ink-soft)">${shop.nombre_parrainages} boutique(s) parrainée(s) jusqu'ici.</p>
+    `;
+    document.getElementById("copyReferralBtn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(message);
+        toast("Message copié", "success");
+      } catch (_) { toast("Impossible de copier automatiquement", "error"); }
+    });
+  }
+
   async function load() {
     const shop = await api("/api/boutique");
     renderSubscriptionCard(shop);
+    renderReferralCard(shop);
     document.getElementById("s_nom").value = shop.nom || "";
     document.getElementById("s_description").value = shop.description || "";
     document.getElementById("s_telephone").value = shop.telephone || "";

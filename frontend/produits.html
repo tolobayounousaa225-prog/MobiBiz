@@ -97,9 +97,16 @@
           <label for="p_description">Description (optionnel)</label>
           <textarea id="p_description" rows="2"></textarea>
 
-          <label for="p_photo">Photo (optionnel)</label>
+          <label for="p_photo">Photo principale (optionnel)</label>
           <div id="p_photo_preview" style="margin-bottom:8px"></div>
           <input type="file" id="p_photo" accept=".jpg,.jpeg,.png,.webp,.gif">
+
+          <div id="gallerySection" class="hidden" style="margin-top:14px">
+            <label style="margin-top:0">Galerie de photos supplémentaires</label>
+            <div id="galleryList" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div>
+            <input type="file" id="p_gallery_photo" accept=".jpg,.jpeg,.png,.webp,.gif">
+            <p style="font-size:12px;color:var(--ink-soft);margin:4px 0 0">Jusqu'à 8 photos, affichées sur la fiche produit de la boutique publique.</p>
+          </div>
 
           <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:16px">
             <input type="checkbox" id="p_promo_actif" style="width:auto"> Promotion active
@@ -231,6 +238,7 @@
           <td style="display:flex;gap:6px">
             <button class="btn secondary small" data-edit="${p.id}">Modifier</button>
             <button class="btn secondary small" data-avis="${p.id}">Avis</button>
+            <button class="btn secondary small" data-labels="${p.id}">Étiquettes</button>
           </td>
         </tr>
       `;
@@ -242,6 +250,26 @@
     body.querySelectorAll("[data-avis]").forEach((btn) => {
       btn.addEventListener("click", () => openReviewsModal(products.find((p) => p.id === Number(btn.dataset.avis))));
     });
+    body.querySelectorAll("[data-labels]").forEach((btn) => {
+      btn.addEventListener("click", () => downloadLabels(products.find((p) => p.id === Number(btn.dataset.labels))));
+    });
+  }
+
+  async function downloadLabels(product) {
+    const quantiteStr = prompt("Nombre d'étiquettes à générer :", "12");
+    if (!quantiteStr) return;
+    const quantite = Math.max(1, Math.min(60, Number(quantiteStr) || 12));
+    try {
+      const blob = await api(`/api/produits/${product.id}/etiquette.pdf?quantite=${quantite}`, { isBlob: true });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `etiquettes-${product.nom}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) { toast(err.message, "error"); }
   }
 
   async function loadProducts() {
@@ -267,6 +295,44 @@
       } catch (err) { toast(err.message, "error"); }
     });
   }
+
+  function renderGallery(product) {
+    const section = document.getElementById("gallerySection");
+    section.classList.toggle("hidden", !product);
+    if (!product) return;
+    const list = document.getElementById("galleryList");
+    const images = product.images || [];
+    list.innerHTML = images.map((img) => `
+      <div style="position:relative">
+        <img src="${API_BASE}${img.image_url}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+        <button type="button" class="btn danger small" data-del-gallery="${img.id}" style="position:absolute;top:-8px;right:-8px;padding:2px 6px;border-radius:999px;line-height:1">&times;</button>
+      </div>
+    `).join("");
+    list.querySelectorAll("[data-del-gallery]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          const updated = await api(`/api/produits/${product.id}/images/${btn.dataset.delGallery}`, { method: "DELETE" });
+          renderGallery(updated);
+          await loadProducts();
+        } catch (err) { toast(err.message, "error"); }
+      });
+    });
+  }
+
+  document.getElementById("p_gallery_photo").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    const productId = document.getElementById("productId").value;
+    if (!file || !productId) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const updated = await api(`/api/produits/${productId}/images`, { method: "POST", formData });
+      e.target.value = "";
+      renderGallery(updated);
+      await loadProducts();
+      toast("Photo ajoutée à la galerie", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
 
   function renderVariantsList(variants) {
     const box = document.getElementById("variantsList");
@@ -399,6 +465,7 @@
     document.getElementById("p_description").value = product ? (product.description || "") : "";
     document.getElementById("p_photo").value = "";
     renderPhotoPreview(product);
+    renderGallery(product);
     document.getElementById("p_promo_actif").checked = product ? !!product.promo_actif : false;
     document.getElementById("p_prix_promo").value = product && product.prix_promo != null ? product.prix_promo : "";
     document.getElementById("p_has_variants").checked = product ? !!product.has_variants : false;

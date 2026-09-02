@@ -48,6 +48,7 @@ function renderLayout(activeKey, pageTitle, pageSub) {
         </div>
       </aside>
       <main class="main">
+        <div id="accountAlertBar"></div>
         <div class="topbar">
           <div>
             <h1>${pageTitle}</h1>
@@ -97,6 +98,7 @@ function renderLayout(activeKey, pageTitle, pageSub) {
 
   api("/api/boutique").then((shop) => {
     document.getElementById("shopNameLabel").textContent = shop.nom;
+    renderAccountAlert(shop);
   }).catch(() => {});
 
   api("/api/auth/me").then((user) => {
@@ -110,6 +112,40 @@ function renderLayout(activeKey, pageTitle, pageSub) {
     document.getElementById("sidebarNav").innerHTML = navHtml;
     initNotifBell();
   }).catch(() => {});
+}
+
+function renderAccountAlert(shop) {
+  const bar = document.getElementById("accountAlertBar");
+  if (!bar) return;
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (shop.abonnement_statut === "essai" && shop.essai_expire_le) {
+    const joursRestants = Math.ceil((new Date(shop.essai_expire_le) - new Date(today)) / 86400000);
+    if (joursRestants <= 3) {
+      const texte = joursRestants <= 0
+        ? "Votre essai gratuit se termine aujourd'hui."
+        : `Votre essai gratuit se termine dans ${joursRestants} jour(s) (${fmtDate(shop.essai_expire_le)}).`;
+      bar.innerHTML = `
+        <div style="background:#fdf3dd;border:1px solid var(--amber);color:#97731a;border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span>⏳ ${texte} Choisissez un plan pour continuer sans interruption.</span>
+          <a href="plans.html" class="btn small" style="margin-left:auto">Voir les plans</a>
+        </div>
+      `;
+      return;
+    }
+  }
+
+  if (shop.abonnement_statut === "actif" && shop.prochain_paiement_le && shop.prochain_paiement_le < today) {
+    bar.innerHTML = `
+      <div style="background:#fdeceb;border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>⚠️ Votre paiement d'abonnement est en retard depuis le ${fmtDate(shop.prochain_paiement_le)}. Réglez rapidement pour éviter une suspension.</span>
+        <a href="boutique.html" class="btn small" style="margin-left:auto">Régler mon abonnement</a>
+      </div>
+    `;
+    return;
+  }
+
+  bar.innerHTML = "";
 }
 
 function initNotifBell() {

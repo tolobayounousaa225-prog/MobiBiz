@@ -1,9 +1,13 @@
+import random
 import re
+import string
 import unicodedata
 
 from sqlalchemy.orm import Session
 
 from . import models
+
+_REFERRAL_ALPHABET = string.ascii_uppercase + string.digits
 
 
 def _base_slug(text: str) -> str:
@@ -20,3 +24,10 @@ def generate_unique_shop_slug(db: Session, nom: str) -> str:
         suffix += 1
         slug = f"{base}-{suffix}"
     return slug
+
+
+def generate_unique_referral_code(db: Session) -> str:
+    while True:
+        code = "".join(random.choices(_REFERRAL_ALPHABET, k=6))
+        if db.query(models.Shop).filter(models.Shop.referral_code == code).first() is None:
+            return code

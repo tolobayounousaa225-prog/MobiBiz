@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas, storage
 from ..database import get_db
 from ..deps import get_current_shop, require_any_module, require_module
+from ..labels import generate_product_labels_pdf
 from ..plans import plan_limit
 
 router = APIRouter(prefix="/api/produits", tags=["produits"])
@@ -269,6 +270,23 @@ async def upload_product_image(
     return product
 
 
+@router.get("/{product_id}/etiquette.pdf")
+def get_product_labels(
+    product_id: int,
+    quantite: int = 12,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_any_module("produits", "stock")),
+    db: Session = Depends(get_db),
+):
+    product = _get_owned_product(db, shop, product_id)
+    pdf_bytes = generate_product_labels_pdf(product, shop, quantite)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="etiquettes-{product.id}.pdf"'},
+    )
+
+
 @router.delete("/{product_id}/image", response_model=schemas.ProductOut)
 def remove_product_image(
     product_id: int,
@@ -279,6 +297,72 @@ def remove_product_image(
     product = _get_owned_product(db, shop, product_id)
     storage.delete_stored_file(db, product.image_path)
     product.image_path = None
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+# ---------- Galerie photo ----------
+MAX_GALLERY_IMAGES = 8
+
+
+@router.get("/images/{image_id}")
+def get_gallery_image(image_id: int, db: Session = Depends(get_db)):
+    """Public (pas d'authentification) — sert aussi les photos sur la boutique
+    publique, même logique que /produits/{id}/image."""
+    image = db.get(models.ProductImage, image_id)
+    if image is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image introuvable")
+    stored = storage.get_stored_file(db, image.image_path)
+    if stored is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image introuvable")
+    return Response(content=stored.data, media_type=stored.content_type)
+
+
+@router.post("/{product_id}/images", response_model=schemas.ProductOut)
+async def add_gallery_image(
+    product_id: int,
+    file: UploadFile,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    product = _get_owned_product(db, shop, product_id)
+    if len(product.images) >= MAX_GALLERY_IMAGES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maximum {MAX_GALLERY_IMAGES} photos dans la galerie",
+        )
+    try:
+        path = await storage.save_upload(db, file, "produits-galerie", storage.ALLOWED_PHOTO_EXT)
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+
+    ordre = max((img.ordre for img in product.images), default=-1) + 1
+    db.add(models.ProductImage(product_id=product.id, image_path=path, ordre=ordre))
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+@router.delete("/{product_id}/images/{image_id}", response_model=schemas.ProductOut)
+def delete_gallery_image(
+    product_id: int,
+    image_id: int,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    product = _get_owned_product(db, shop, product_id)
+    image = (
+        db.query(models.ProductImage)
+        .filter(models.ProductImage.id == image_id, models.ProductImage.product_id == product.id)
+        .first()
+    )
+    if image is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image introuvable")
+    storage.delete_stored_file(db, image.image_path)
+    db.delete(image)
     db.commit()
     db.refresh(product)
     return product

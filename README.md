@@ -175,6 +175,51 @@ Côté administration plateforme :
   le rôle, en plus du contrôle serveur (le frontend ne fait qu'améliorer l'UX, le
   403 serveur reste l'unique garde-fou réel).
 
+## Boutique et administration — 3e vague (2026-09-02)
+
+Côté boutique :
+- **Galerie multi-photos** ✅ — `ProductImage` (nouvelle table), jusqu'à 8 photos
+  supplémentaires par produit en plus de la photo principale (`Product.image_path`,
+  inchangée). Gérée depuis `produits.html`, affichée en vignettes cliquables sur la
+  fiche produit de la boutique publique (`boutique-publique.html`).
+- **Rapports PDF** ✅ — `GET /api/rapports/ventes.pdf` et `/finances.pdf`
+  (`app/reports_pdf.py`, reportlab). Complète les exports CSV existants sans les
+  remplacer : KPIs, top produits vendus, détail des commandes/dépenses.
+- **Étiquettes QR produit** ✅ — `GET /api/produits/{id}/etiquette.pdf?quantite=N`
+  (`app/labels.py`) : planche d'étiquettes (QR + nom + prix) à imprimer, jusqu'à 60
+  par génération. QR plutôt qu'un vrai code-barres EAN13 (nécessiterait un
+  identifiant GS1 attribué, hors de portée) — lisible par n'importe quel scanner QR,
+  y compris un smartphone.
+
+Côté administration plateforme :
+- **Actions groupées** ✅ — `POST /api/admin/boutiques/actions-groupees` (SUPER
+  uniquement), suspend/réactive plusieurs boutiques en un appel. Sélection par
+  cases à cocher sur `admin-boutiques.html`, une seule entrée de journal d'audit
+  résumant le lot plutôt qu'une par boutique.
+- **Export comptable** ✅ — `GET /api/admin/export/boutiques.csv` et
+  `/paiements.csv`, protégés par `csv_safe` (même garde anti-injection de formule
+  que les autres exports CSV du projet).
+- **Bannière d'alerte boutique** ✅ — purement frontend (`layout.js`,
+  `renderAccountAlert`), aucune route dédiée : lit `essai_expire_le`/
+  `prochain_paiement_le`/`abonnement_statut` déjà renvoyés par `GET /api/boutique`.
+  Avertit le commerçant lui-même (essai ≤ 3 jours restants, ou paiement en retard),
+  en complément — pas en remplacement — des notifications déjà côté admin.
+- **Codes de parrainage** ✅ — `Shop.referral_code` (généré à l'inscription) +
+  `Shop.referred_by_shop_id`. Un code valide saisi à l'inscription
+  (`inscription.html`, pré-rempli via `?parrain=CODE` dans le lien partagé) prolonge
+  de 7 jours (`plans.REFERRAL_BONUS_DAYS`) l'essai/l'échéance de paiement **des deux
+  boutiques** — parrain et filleul. Un code invalide n'empêche pas l'inscription,
+  juste pas de bonus. Carte dédiée sur `boutique.html` (code + lien à partager +
+  nombre de parrainages), compteur `parrainages_total` sur `admin-dashboard.html`.
+
+**Piège rencontré et corrigé avant déploiement** : `reportlab.platypus.Image`
+n'accepte pas un `ImageReader` directement en premier argument (malgré ce qu'on
+pourrait attendre) — lève `TypeError: expected str, bytes or os.PathLike object`.
+Corrigé en passant un `io.BytesIO` frais des bytes PNG à chaque étiquette
+(`app/labels.py`) : réutiliser la même instance de flowable (Image/Table/Paragraph)
+à plusieurs endroits d'un même document reportlab est de toute façon à éviter, l'état
+de mise en page est partagé et le rendu peut devenir incorrect silencieusement.
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

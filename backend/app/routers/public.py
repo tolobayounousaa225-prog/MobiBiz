@@ -49,6 +49,7 @@ def _to_public_product(product: models.Product, stats: dict[int, tuple[float, in
         image_url=product.image_url, stock=product.stock, category_id=product.category_id,
         has_variants=product.has_variants,
         variants=[v for v in product.variants if v.actif] if product.has_variants else [],
+        images=product.images,
         note_moyenne=moyenne, nombre_avis=nombre,
     )
 

@@ -33,6 +33,26 @@ def _backfill_shop_slugs() -> None:
         db.close()
 
 
+def _backfill_referral_codes() -> None:
+    from .database import SessionLocal
+    from .slug_utils import generate_unique_referral_code
+
+    db = SessionLocal()
+    try:
+        from . import models
+
+        shops_sans_code = db.query(models.Shop).filter(
+            (models.Shop.referral_code.is_(None)) | (models.Shop.referral_code == "")
+        ).all()
+        for shop in shops_sans_code:
+            shop.referral_code = generate_unique_referral_code(db)
+        if shops_sans_code:
+            db.commit()
+            logger.info("Code de parrainage généré pour %d boutique(s) existante(s).", len(shops_sans_code))
+    finally:
+        db.close()
+
+
 def _backfill_admin_roles() -> None:
     """Les comptes admin créés avant l'introduction des rôles admin (SUPER/SUPPORT)
     n'ont pas de admin_role — les traiter comme SUPER (accès complet, comportement
@@ -106,6 +126,8 @@ def run_startup_migrations() -> None:
         "abonnement_plan": "VARCHAR(20) DEFAULT 'FREE'",
         "prochain_paiement_le": "DATE",
         "essai_expire_le": "DATE",
+        "referral_code": "VARCHAR(20)",
+        "referred_by_shop_id": "INTEGER",
     })
 
     if inspector.has_table("users"):
@@ -165,6 +187,7 @@ def run_startup_migrations() -> None:
 
     if inspector.has_table("shops"):
         _backfill_shop_slugs()
+        _backfill_referral_codes()
     if inspector.has_table("users"):
         _backfill_admin_roles()
 
@@ -179,3 +202,7 @@ def run_startup_migrations() -> None:
             with engine.begin() as conn:
                 conn.execute(text("CREATE UNIQUE INDEX ix_shops_slug ON shops (slug)"))
             logger.info("Index unique posé sur shops.slug.")
+        if "ix_shops_referral_code" not in existing_indexes and "shops_referral_code_key" not in existing_constraints:
+            with engine.begin() as conn:
+                conn.execute(text("CREATE UNIQUE INDEX ix_shops_referral_code ON shops (referral_code)"))
+            logger.info("Index unique posé sur shops.referral_code.")

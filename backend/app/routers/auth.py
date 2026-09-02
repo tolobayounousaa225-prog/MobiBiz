@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_user
-from ..plans import TRIAL_DAYS
+from ..plans import REFERRAL_BONUS_DAYS, TRIAL_DAYS
 from ..rate_limit import enforce_login_rate_limit, enforce_password_reset_rate_limit
 from ..security import (
     create_access_token,
@@ -15,7 +15,7 @@ from ..security import (
     verify_password,
     verify_security_answer,
 )
-from ..slug_utils import generate_unique_shop_slug
+from ..slug_utils import generate_unique_referral_code, generate_unique_shop_slug
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -50,9 +50,27 @@ def register(payload: schemas.RegisterIn, db: Session = Depends(get_db)):
     slug = generate_unique_shop_slug(db, payload.boutique_nom)
     shop = models.Shop(
         owner_id=user.id, nom=payload.boutique_nom, slug=slug,
+        referral_code=generate_unique_referral_code(db),
         essai_expire_le=date.today() + timedelta(days=TRIAL_DAYS),
     )
     db.add(shop)
+    db.flush()
+
+    if payload.referral_code:
+        referrer = (
+            db.query(models.Shop)
+            .filter(models.Shop.referral_code == payload.referral_code.strip().upper())
+            .first()
+        )
+        # Un code invalide/inconnu ne bloque pas l'inscription — juste pas de bonus.
+        if referrer is not None and referrer.id != shop.id:
+            shop.referred_by_shop_id = referrer.id
+            shop.essai_expire_le += timedelta(days=REFERRAL_BONUS_DAYS)
+            if referrer.abonnement_statut == models.SubscriptionStatus.ESSAI and referrer.essai_expire_le:
+                referrer.essai_expire_le += timedelta(days=REFERRAL_BONUS_DAYS)
+            elif referrer.abonnement_statut == models.SubscriptionStatus.ACTIF and referrer.prochain_paiement_le:
+                referrer.prochain_paiement_le += timedelta(days=REFERRAL_BONUS_DAYS)
+
     db.commit()
 
     token = create_access_token(str(user.id))

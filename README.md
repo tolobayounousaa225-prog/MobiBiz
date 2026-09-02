@@ -115,6 +115,15 @@ Implémenté et testé de bout en bout :
 - **Statistiques d'évolution** ✅ — nouvelles boutiques/commandes/CA par mois
   (`GET /api/admin/statistiques/evolution`), graphique en barres SVG fait main sur
   `admin-dashboard.html` (pas de dépendance externe).
+- **Statistiques stock avancées** ✅ — section 14 du cahier des charges.
+  `GET /api/stock/statistiques` (`jours_ventes`=30, `jours_dormant`=60, `limite`=10,
+  tous ajustables en query param) : valeur du stock au prix d'achat et de vente,
+  bénéfice potentiel, rotation globale (qté vendue / stock actuel sur la fenêtre de
+  vente — approximation faute d'historique de stock moyen), produits les plus/moins
+  vendus (avec au moins une vente), stock dormant (aucune vente sur la fenêtre
+  `jours_dormant`, trié par valeur immobilisée décroissante pour prioriser). Affiché
+  en haut de `stock.html` (KPI + 3 tableaux), bouton « Ajuster » direct depuis le
+  tableau de stock dormant.
 
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en

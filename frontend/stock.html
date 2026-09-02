@@ -22,6 +22,13 @@
 
   const content = document.getElementById("pageContent");
   content.innerHTML = `
+    <div class="kpi-grid" id="statsKpis">
+      <div class="kpi"><div class="label">Valeur du stock (achat)</div><div class="value" id="kpiAchat">—</div></div>
+      <div class="kpi"><div class="label">Valeur du stock (vente)</div><div class="value orange" id="kpiVente">—</div></div>
+      <div class="kpi"><div class="label">Bénéfice potentiel</div><div class="value green" id="kpiBenefice">—</div></div>
+      <div class="kpi"><div class="label">Rotation (30j)</div><div class="value" id="kpiRotation">—</div></div>
+    </div>
+
     <div class="card" id="alertsCard" style="display:none">
       <h2>⚠️ Produits en stock faible ou épuisés</h2>
       <div class="table-wrap">
@@ -31,6 +38,37 @@
         </table>
       </div>
     </div>
+
+    <div class="card">
+      <h2>📈 Produits les plus vendus <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">(30 derniers jours)</span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Produit</th><th>Qté vendue</th><th>Chiffre d'affaires</th><th>Stock restant</th></tr></thead>
+          <tbody id="topSellersBody"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📉 Produits les moins vendus <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">(30 derniers jours, avec au moins une vente)</span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Produit</th><th>Qté vendue</th><th>Chiffre d'affaires</th><th>Stock restant</th></tr></thead>
+          <tbody id="leastSellersBody"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>💤 Stock dormant <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">(aucune vente depuis 60 jours)</span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Produit</th><th>Stock</th><th>Valeur immobilisée</th><th></th></tr></thead>
+          <tbody id="dormantBody"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="card">
       <h2>Tous les produits</h2>
       <div class="table-wrap">
@@ -146,7 +184,53 @@
     renderTables();
   }
 
+  function statRow(s, valueLabel, valueFmt) {
+    return `
+      <tr>
+        <td>${s.nom}</td>
+        <td>${s.quantite_vendue}</td>
+        <td>${fmtFCFA(s.chiffre_affaires)}</td>
+        <td>${s.stock}</td>
+      </tr>
+    `;
+  }
+
+  async function loadStats() {
+    const stats = await api("/api/stock/statistiques");
+    document.getElementById("kpiAchat").textContent = fmtFCFA(stats.valeur_stock_achat);
+    document.getElementById("kpiVente").textContent = fmtFCFA(stats.valeur_stock_vente);
+    document.getElementById("kpiBenefice").textContent = fmtFCFA(stats.benefice_potentiel);
+    document.getElementById("kpiRotation").textContent = stats.rotation_globale === null
+      ? "—" : stats.rotation_globale.toFixed(2) + "x";
+
+    const topBody = document.getElementById("topSellersBody");
+    topBody.innerHTML = stats.produits_plus_vendus.length === 0
+      ? `<tr><td colspan="4" class="empty">Aucune vente sur la période</td></tr>`
+      : stats.produits_plus_vendus.map((s) => statRow(s)).join("");
+
+    const leastBody = document.getElementById("leastSellersBody");
+    leastBody.innerHTML = stats.produits_moins_vendus.length === 0
+      ? `<tr><td colspan="4" class="empty">Aucune vente sur la période</td></tr>`
+      : stats.produits_moins_vendus.map((s) => statRow(s)).join("");
+
+    const dormantBody = document.getElementById("dormantBody");
+    dormantBody.innerHTML = stats.stock_dormant.length === 0
+      ? `<tr><td colspan="4" class="empty">Aucun stock dormant 🎉</td></tr>`
+      : stats.stock_dormant.map((s) => `
+          <tr>
+            <td>${s.nom}</td>
+            <td>${s.stock}</td>
+            <td>${fmtFCFA(s.valeur_stock)}</td>
+            <td><button class="btn secondary small" data-adjust="${s.product_id}">Ajuster</button></td>
+          </tr>
+        `).join("");
+    dormantBody.querySelectorAll("[data-adjust]").forEach((btn) => {
+      btn.addEventListener("click", () => openAdjustModal(Number(btn.dataset.adjust)));
+    });
+  }
+
   loadProducts().catch((err) => toast(err.message, "error"));
+  loadStats().catch((err) => toast(err.message, "error"));
 </script>
 </body>
 </html>

@@ -239,6 +239,25 @@ class StockAdjustIn(BaseModel):
     motif: str | None = None
 
 
+class ProductSalesStat(BaseModel):
+    product_id: int
+    nom: str
+    stock: int
+    quantite_vendue: int
+    chiffre_affaires: float
+    valeur_stock: float
+
+
+class StockStatsOut(BaseModel):
+    valeur_stock_achat: float
+    valeur_stock_vente: float
+    benefice_potentiel: float
+    rotation_globale: float | None = None
+    produits_plus_vendus: list[ProductSalesStat]
+    produits_moins_vendus: list[ProductSalesStat]
+    stock_dormant: list[ProductSalesStat]
+
+
 # ---------- Dashboard ----------
 class DashboardOut(BaseModel):
     chiffre_affaires: float

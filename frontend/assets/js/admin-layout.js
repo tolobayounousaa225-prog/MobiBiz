@@ -20,7 +20,7 @@ function renderAdminLayout(activeKey, pageTitle, pageSub) {
         <div class="sidebar__shop">Administration</div>
         <nav id="sidebarNav"></nav>
         <div class="sidebar__footer">
-          <a href="mon-compte.html" style="display:block;padding:10px 0;color:#c7c9d8;font-size:14.5px">Mon compte</a>
+          <a href="mon-compte.html" class="${activeKey === "mon-compte" ? "active" : ""}" style="display:block;padding:10px 0;color:#c7c9d8;font-size:14.5px">Mon compte</a>
           <button id="logoutBtn">Déconnexion</button>
         </div>
       </aside>

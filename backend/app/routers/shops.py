@@ -54,6 +54,34 @@ def change_plan(
     return shop
 
 
+@router.get("/actions-en-attente", response_model=schemas.PendingActionsOut)
+def pending_actions(shop: models.Shop = Depends(get_current_shop), db: Session = Depends(get_db)):
+    """Compte les éléments nécessitant une action du gestionnaire, affichés en
+    badge directement sur les onglets concernés de la barre latérale — évite de
+    devoir ouvrir chaque section pour savoir s'il y a quelque chose à faire.
+    Le frontend décide seul quel badge afficher selon les modules accessibles à
+    l'utilisateur connecté (employé ou propriétaire) ; ici on renvoie tout."""
+    commandes = (
+        db.query(models.Order)
+        .filter(models.Order.shop_id == shop.id, models.Order.statut == models.OrderStatus.NOUVELLE)
+        .count()
+    )
+    stock = (
+        db.query(models.Product)
+        .filter(
+            models.Product.shop_id == shop.id, models.Product.actif.is_(True),
+            models.Product.stock <= models.Product.seuil_alerte,
+        )
+        .count()
+    )
+    avis = (
+        db.query(models.ProductReview)
+        .filter(models.ProductReview.shop_id == shop.id, models.ProductReview.approuve.is_(False))
+        .count()
+    )
+    return schemas.PendingActionsOut(commandes=commandes, stock=stock, avis=avis)
+
+
 @router.get("/wave-qr.png")
 def wave_qr_code(shop: models.Shop = Depends(get_current_shop)):
     if not shop.wave_payment_link:

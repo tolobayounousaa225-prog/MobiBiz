@@ -16,10 +16,10 @@ function hasAccess(user, module) {
 
 const NAV_ITEMS = [
   { href: "dashboard.html", label: "Tableau de bord", key: "dashboard", show: () => true },
-  { href: "produits.html", label: "Produits", key: "produits", show: (u) => hasAccess(u, "produits") },
-  { href: "stock.html", label: "Stock", key: "stock", show: (u) => hasAccess(u, "stock") },
+  { href: "produits.html", label: "Produits", key: "produits", show: (u) => hasAccess(u, "produits"), badgeKey: "avis" },
+  { href: "stock.html", label: "Stock", key: "stock", show: (u) => hasAccess(u, "stock"), badgeKey: "stock" },
   { href: "clients.html", label: "Clients", key: "clients", show: () => true },
-  { href: "commandes.html", label: "Commandes", key: "commandes", show: (u) => hasAccess(u, "commandes") },
+  { href: "commandes.html", label: "Commandes", key: "commandes", show: (u) => hasAccess(u, "commandes"), badgeKey: "commandes" },
   { href: "finances.html", label: "Finances", key: "finances", show: (u) => hasAccess(u, "finance") },
   { href: "marketing.html", label: "Marketing", key: "marketing", show: (u) => u.role === "owner" },
   { href: "coupons.html", label: "Codes promo", key: "coupons", show: (u) => u.role === "owner" },
@@ -107,10 +107,13 @@ function renderLayout(activeKey, pageTitle, pageSub) {
       return;
     }
     const navHtml = NAV_ITEMS.filter((item) => item.show(user)).map(
-      (item) => `<a href="${item.href}" class="${item.key === activeKey ? "active" : ""}">${item.label}</a>`
+      (item) => `<a href="${item.href}" class="${item.key === activeKey ? "active" : ""}">${item.label}${
+        item.badgeKey ? `<span class="nav-badge hidden" data-nav-badge="${item.badgeKey}"></span>` : ""
+      }</a>`
     ).join("");
     document.getElementById("sidebarNav").innerHTML = navHtml;
     initNotifBell();
+    initPendingActionBadges();
   }).catch(() => {});
 }
 
@@ -146,6 +149,29 @@ function renderAccountAlert(shop) {
   }
 
   bar.innerHTML = "";
+}
+
+function initPendingActionBadges() {
+  const badges = document.querySelectorAll("[data-nav-badge]");
+  if (badges.length === 0) return;
+
+  async function refresh() {
+    try {
+      const actions = await api("/api/boutique/actions-en-attente");
+      badges.forEach((el) => {
+        const count = actions[el.dataset.navBadge] || 0;
+        if (count > 0) {
+          el.textContent = count > 9 ? "9+" : count;
+          el.classList.remove("hidden");
+        } else {
+          el.classList.add("hidden");
+        }
+      });
+    } catch (_) { /* ignore */ }
+  }
+
+  refresh();
+  setInterval(refresh, 30000);
 }
 
 function initNotifBell() {

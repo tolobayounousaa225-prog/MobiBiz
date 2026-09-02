@@ -10,9 +10,30 @@
 <script src="assets/js/api.js"></script>
 <script>Auth.requireAuth();</script>
 <script src="assets/js/layout.js"></script>
+<script src="assets/js/admin-layout.js"></script>
 <script>
-  renderLayout("mon-compte", "Mon compte", "Mot de passe et question de sécurité");
+  // Page partagée entre l'espace boutique et l'espace admin (mêmes endpoints
+  // /api/auth/*, mêmes User) — il faut donc choisir le bon layout selon le rôle
+  // réel plutôt que d'appeler renderLayout() en dur : celle-ci redirige tout
+  // compte admin vers admin-dashboard.html, ce qui faisait apparaître puis
+  // disparaître aussitôt la page pour un administrateur (bug signalé).
+  (async () => {
+    let user;
+    try {
+      user = await api("/api/auth/me");
+    } catch (_) {
+      window.location.href = "index.html";
+      return;
+    }
+    if (user.role === "admin") {
+      renderAdminLayout("mon-compte", "Mon compte", "Mot de passe et sécurité");
+    } else {
+      renderLayout("mon-compte", "Mon compte", "Mot de passe et question de sécurité");
+    }
+    initAccountPage();
+  })();
 
+  function initAccountPage() {
   const content = document.getElementById("pageContent");
   content.innerHTML = `
     <div class="card" style="max-width:480px">
@@ -87,6 +108,7 @@
   });
 
   Promise.all([loadSecurityQuestions(), loadStatus()]).catch((err) => toast(err.message, "error"));
+  }
 </script>
 </body>
 </html>

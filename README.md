@@ -220,6 +220,26 @@ Corrigé en passant un `io.BytesIO` frais des bytes PNG à chaque étiquette
 à plusieurs endroits d'un même document reportlab est de toute façon à éviter, l'état
 de mise en page est partagé et le rendu peut devenir incorrect silencieusement.
 
+## Badges d'actions en attente + correctif "Mon compte" admin (2026-09-02)
+
+- **Badges d'actions en attente** ✅ — demande directe de l'utilisateur : il fallait
+  voir en un coup d'œil, sans ouvrir chaque section, qu'il y a une commande à
+  confirmer, un stock faible ou un avis à modérer. `GET /api/boutique/actions-en-attente`
+  (`schemas.PendingActionsOut` : commandes nouvelles, produits en alerte stock,
+  avis non modérés) — un seul appel, le frontend décide seul quel badge afficher
+  selon les modules réellement accessibles à l'utilisateur (`NAV_ITEMS[].badgeKey`
+  dans `layout.js`). Pastille orange directement sur l'onglet concerné de la barre
+  latérale (Produits/Stock/Commandes), rafraîchie toutes les 30s comme la cloche de
+  notifications.
+- **Bug corrigé — "Mon compte" inaccessible côté admin** ✅ — `mon-compte.html`
+  appelait `renderLayout()` (script boutique) en dur, qui redirige tout compte
+  `role === "admin"` vers `admin-dashboard.html` : la page apparaissait puis
+  disparaissait aussitôt pour un administrateur, rendant "Mon compte" totalement
+  inaccessible depuis l'espace admin (signalé par l'utilisateur). Corrigé en
+  interrogeant `/api/auth/me` d'abord, puis en appelant `renderLayout()` ou
+  `renderAdminLayout()` selon le rôle réel — la page est partagée entre les deux
+  espaces (mêmes endpoints `/api/auth/*`), il n'y avait pas besoin de la dupliquer.
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

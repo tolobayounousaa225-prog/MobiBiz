@@ -343,6 +343,13 @@ class StockStatsOut(BaseModel):
     stock_dormant: list[ProductSalesStat]
 
 
+# ---------- Actions en attente ----------
+class PendingActionsOut(BaseModel):
+    commandes: int = 0
+    stock: int = 0
+    avis: int = 0
+
+
 # ---------- Dashboard ----------
 class DashboardOut(BaseModel):
     chiffre_affaires: float

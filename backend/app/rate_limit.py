@@ -52,3 +52,13 @@ def enforce_review_rate_limit(request: Request) -> None:
     client_ip = request.client.host if request.client else "unknown"
     _enforce("public_review", client_ip, max_attempts=5, window_seconds=600,
              message="Trop d'avis envoyés. Réessayez dans quelques minutes.")
+
+
+def enforce_verification_rate_limit(request: Request) -> None:
+    """Limite le scan/l'interrogation répétée de la vérification publique de
+    reçus (aucune authentification) — assez permissif pour qu'un client ou un
+    vendeur scanne plusieurs reçus différents sans blocage, mais empêche de
+    parcourir systématiquement les numéros de commande à la recherche de fuites."""
+    client_ip = request.client.host if request.client else "unknown"
+    _enforce("verification", client_ip, max_attempts=30, window_seconds=600,
+             message="Trop de vérifications. Réessayez dans quelques minutes.")

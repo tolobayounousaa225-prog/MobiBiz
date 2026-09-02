@@ -86,8 +86,8 @@
         <h2 style="margin-top:18px;font-size:15px">Historique des paiements</h2>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Date</th><th>Montant</th></tr></thead>
-            <tbody id="paymentsBody"><tr><td colspan="2" class="empty">—</td></tr></tbody>
+            <thead><tr><th>Date</th><th>Montant</th><th></th></tr></thead>
+            <tbody id="paymentsBody"><tr><td colspan="3" class="empty">—</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -198,12 +198,33 @@
 
   async function loadPayments(shopId) {
     const body = document.getElementById("paymentsBody");
-    body.innerHTML = `<tr><td colspan="2" class="empty">Chargement…</td></tr>`;
+    body.innerHTML = `<tr><td colspan="3" class="empty">Chargement…</td></tr>`;
     try {
       const payments = await api(`/api/admin/boutiques/${shopId}/paiements`);
       body.innerHTML = payments.length === 0
-        ? `<tr><td colspan="2" class="empty">Aucun paiement enregistré</td></tr>`
-        : payments.map((p) => `<tr><td>${fmtDate(p.date_paiement)}</td><td>${fmtFCFA(p.montant)}</td></tr>`).join("");
+        ? `<tr><td colspan="3" class="empty">Aucun paiement enregistré</td></tr>`
+        : payments.map((p) => `
+            <tr>
+              <td>${fmtDate(p.date_paiement)}</td>
+              <td>${fmtFCFA(p.montant)}</td>
+              <td>${p.recu_url ? `<button class="btn secondary small" data-recu="${p.id}">Télécharger le reçu</button>` : "-"}</td>
+            </tr>
+          `).join("");
+      document.querySelectorAll("[data-recu]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            const blob = await api(`/api/admin/boutiques/${shopId}/paiements/${btn.dataset.recu}/recu.pdf`, { isBlob: true });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `recu-${btn.dataset.recu}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          } catch (err) { toast(err.message, "error"); }
+        });
+      });
     } catch (err) { toast(err.message, "error"); }
   }
 

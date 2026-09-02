@@ -303,6 +303,34 @@ existant, il corrige uniquement les masquages qui ne fonctionnaient pas.
 `getComputedStyle(el).display` (ou une capture d'écran) au moins une fois par
 nouveau pattern d'affichage/masquage introduit.
 
+## QR de certification sur factures et reçus (2026-09-02)
+
+Demande directe : permettre de vérifier l'authenticité d'un document imprimé/PDF
+en scannant un QR code, aussi bien pour les factures boutique que pour les reçus
+de paiement d'abonnement émis par l'admin.
+
+- **Page de vérification publique** ✅ — `verifier.html` (aucune authentification,
+  hors du layout habituel), lit `?commande=NUMERO` ou `?paiement=REFERENCE` et
+  affiche authentique/non reconnu avec les infos clés. Nouveau routeur
+  `app/routers/verification.py` (`GET /api/public/verification/commande/{numero}`,
+  `GET /api/public/verification/paiement/{reference}`), rate-limité
+  (`enforce_verification_rate_limit`, 30/10min par IP) comme tout autre endpoint
+  public sans authentification du projet. Volontairement minimal dans ce qui est
+  exposé publiquement : boutique, montant, date, statut — jamais les coordonnées
+  du client final.
+- **QR intégré aux deux documents** ✅ — `app/pdf_utils.py::verification_qr_elements`
+  (partagé), ajouté en bas de la facture (`invoice.py`) et du reçu de paiement
+  d'abonnement (`receipt_pdf.py`). Encode l'URL complète de vérification
+  (`settings.frontend_base_url` — nouveau réglage, défaut = l'URL GitHub Pages en
+  production) : scanner avec n'importe quelle appli ouvre directement la page de
+  résultat, pas besoin de taper un code à la main.
+- **Téléchargement du reçu côté admin** ✅ — l'historique des paiements dans
+  `admin-boutiques.html` n'avait jusqu'ici aucun moyen de récupérer le PDF déjà
+  généré (seule la boutique le pouvait, depuis son propre espace). Ajouté
+  `GET /api/admin/boutiques/{shop_id}/paiements/{payment_id}/recu.pdf` — permet à
+  l'admin de le transmettre lui-même manuellement (WhatsApp, email) si besoin, en
+  plus de l'accès déjà automatique côté boutique.
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

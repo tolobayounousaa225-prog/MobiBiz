@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vérification — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card" style="max-width:440px;text-align:center" id="resultCard">
+    <div class="brand" style="justify-content:center;display:flex">Mobi<span>Biz</span></div>
+    <p class="tagline">Vérification d'authenticité</p>
+    <p style="color:var(--ink-soft)">Chargement…</p>
+  </div>
+</div>
+
+<script src="assets/js/api.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const commande = params.get("commande");
+  const paiement = params.get("paiement");
+  const card = document.getElementById("resultCard");
+
+  function renderInvalid() {
+    card.innerHTML = `
+      <div class="brand" style="justify-content:center;display:flex">Mobi<span>Biz</span></div>
+      <p class="tagline">Vérification d'authenticité</p>
+      <p style="font-size:40px;margin:10px 0">❓</p>
+      <p>Aucun code à vérifier. Scannez le QR code présent sur une facture ou un
+      reçu MobiBiz pour confirmer ici son authenticité.</p>
+    `;
+  }
+
+  function renderNotFound() {
+    card.innerHTML = `
+      <div class="brand" style="justify-content:center;display:flex">Mobi<span>Biz</span></div>
+      <p class="tagline">Vérification d'authenticité</p>
+      <p style="font-size:40px;margin:10px 0">⚠️</p>
+      <p style="color:var(--red);font-weight:600">Document non reconnu</p>
+      <p style="color:var(--ink-soft);font-size:13.5px">
+        Ce code ne correspond à aucun enregistrement sur la plateforme MobiBiz.
+        Ce document pourrait être invalide ou falsifié.
+      </p>
+    `;
+  }
+
+  function renderOrder(data) {
+    card.innerHTML = `
+      <div class="brand" style="justify-content:center;display:flex">Mobi<span>Biz</span></div>
+      <p style="font-size:40px;margin:10px 0">✅</p>
+      <p style="color:var(--green);font-weight:700;font-size:17px">Facture authentique</p>
+      <div style="text-align:left;margin-top:18px;font-size:14px">
+        <p><strong>Boutique :</strong> ${data.boutique_nom}</p>
+        <p><strong>Commande :</strong> ${data.numero}</p>
+        <p><strong>Date :</strong> ${fmtDate(data.date)}</p>
+        <p><strong>Total :</strong> ${fmtFCFA(data.total)}</p>
+        <p><strong>Statut :</strong> ${ORDER_STATUS_LABELS[data.statut]?.[0] || data.statut}</p>
+        <p><strong>Paiement :</strong> ${PAIEMENT_STATUS_LABELS[data.paiement_statut]?.[0] || data.paiement_statut}</p>
+      </div>
+    `;
+  }
+
+  function renderPayment(data) {
+    card.innerHTML = `
+      <div class="brand" style="justify-content:center;display:flex">Mobi<span>Biz</span></div>
+      <p style="font-size:40px;margin:10px 0">✅</p>
+      <p style="color:var(--green);font-weight:700;font-size:17px">Reçu authentique</p>
+      <div style="text-align:left;margin-top:18px;font-size:14px">
+        <p><strong>Boutique :</strong> ${data.boutique_nom}</p>
+        <p><strong>Référence :</strong> ${data.reference}</p>
+        <p><strong>Montant :</strong> ${fmtFCFA(data.montant)}</p>
+        <p><strong>Date de paiement :</strong> ${fmtDate(data.date_paiement)}</p>
+      </div>
+      <p style="color:var(--ink-soft);font-size:12.5px;margin-top:14px">
+        Paiement d'abonnement MobiBiz confirmé par l'administrateur de la plateforme.
+      </p>
+    `;
+  }
+
+  async function run() {
+    try {
+      if (commande) {
+        const data = await api(`/api/public/verification/commande/${encodeURIComponent(commande)}`);
+        renderOrder(data);
+      } else if (paiement) {
+        const data = await api(`/api/public/verification/paiement/${encodeURIComponent(paiement)}`);
+        renderPayment(data);
+      } else {
+        renderInvalid();
+      }
+    } catch (err) {
+      renderNotFound();
+    }
+  }
+
+  run();
+</script>
+</body>
+</html>

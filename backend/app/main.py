@@ -21,6 +21,7 @@ from .routers import (
     stock,
     subscription,
     support,
+    verification,
 )
 
 run_startup_migrations()
@@ -52,6 +53,7 @@ app.include_router(public.router)
 app.include_router(admin.router)
 app.include_router(subscription.router)
 app.include_router(support.router)
+app.include_router(verification.router)
 
 
 @app.get("/api/health")

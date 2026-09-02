@@ -13,6 +13,8 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from . import models
+from .config import settings
+from .pdf_utils import verification_qr_elements
 
 _STYLES = getSampleStyleSheet()
 _TITLE = ParagraphStyle("ReceiptTitle", parent=_STYLES["Title"], fontSize=20, spaceAfter=2 * mm)
@@ -23,12 +25,13 @@ def generate_payment_receipt_pdf(shop: "models.Shop", payment: "models.Subscript
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=25 * mm, bottomMargin=25 * mm)
 
+    reference = f"PAY-{payment.id:06d}"
     rows = [
         ["Boutique", shop.nom],
         ["Montant réglé", f"{payment.montant:,.0f} FCFA".replace(",", " ")],
         ["Date de paiement", payment.date_paiement.strftime("%d/%m/%Y")],
         ["Enregistré le", payment.created_at.strftime("%d/%m/%Y à %H:%M")],
-        ["Référence", f"PAY-{payment.id:06d}"],
+        ["Référence", reference],
     ]
     table = Table(rows, colWidths=[55 * mm, 100 * mm])
     table.setStyle(TableStyle([
@@ -38,6 +41,8 @@ def generate_payment_receipt_pdf(shop: "models.Shop", payment: "models.Subscript
         ("TOPPADDING", (0, 0), (-1, -1), 8),
         ("LINEBELOW", (0, 0), (-1, -1), 0.4, colors.HexColor("#e7e9f0")),
     ]))
+
+    verify_url = f"{settings.frontend_base_url}/verifier.html?paiement={reference}"
 
     elements = [
         Paragraph("MobiBiz", _TITLE),
@@ -49,6 +54,11 @@ def generate_payment_receipt_pdf(shop: "models.Shop", payment: "models.Subscript
             "Ce reçu confirme la réception, par l'administrateur de la plateforme "
             "MobiBiz, du paiement de l'abonnement de votre boutique.",
             _SMALL,
+        ),
+        Spacer(1, 8 * mm),
+        *verification_qr_elements(
+            verify_url,
+            f"Scannez pour certifier ce reçu sur MobiBiz.<br/>{verify_url}",
         ),
     ]
 

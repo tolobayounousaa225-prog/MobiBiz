@@ -5,7 +5,7 @@ import csv
 import io
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -140,6 +140,29 @@ def list_shop_payments(shop_id: int, db: Session = Depends(get_db)):
         .filter(models.SubscriptionPayment.shop_id == shop_id)
         .order_by(models.SubscriptionPayment.date_paiement.desc())
         .all()
+    )
+
+
+@router.get("/boutiques/{shop_id}/paiements/{payment_id}/recu.pdf")
+def download_shop_payment_receipt(shop_id: int, payment_id: int, db: Session = Depends(get_db)):
+    """Permet à l'admin de récupérer lui-même le PDF pour le transmettre
+    manuellement à la boutique (WhatsApp, email...) si besoin — le reçu est de
+    toute façon déjà consultable directement par la boutique dans son propre
+    espace dès qu'il est généré."""
+    payment = (
+        db.query(models.SubscriptionPayment)
+        .filter(models.SubscriptionPayment.id == payment_id, models.SubscriptionPayment.shop_id == shop_id)
+        .first()
+    )
+    if payment is None or not payment.recu_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reçu introuvable")
+    stored = storage.get_stored_file(db, payment.recu_path)
+    if stored is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reçu introuvable")
+    return Response(
+        content=stored.data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="recu-{payment.date_paiement}.pdf"'},
     )
 
 

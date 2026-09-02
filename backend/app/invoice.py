@@ -12,7 +12,8 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 
 from . import models
-from .pdf_utils import shop_header_elements
+from .config import settings
+from .pdf_utils import shop_header_elements, verification_qr_elements
 
 
 def generate_invoice_pdf(order: "models.Order", shop: "models.Shop", logo_bytes: bytes | None = None) -> bytes:
@@ -83,6 +84,14 @@ def generate_invoice_pdf(order: "models.Order", shop: "models.Shop", logo_bytes:
     elements.append(totals_table)
     elements.append(Spacer(1, 10 * mm))
     elements.append(Paragraph(f"Statut du paiement : {order.paiement_statut.value}", small))
+
+    verify_url = f"{settings.frontend_base_url}/verifier.html?commande={order.numero}"
+    elements.append(Spacer(1, 6 * mm))
+    elements += verification_qr_elements(
+        verify_url,
+        f"Scannez pour vérifier l'authenticité de cette facture sur MobiBiz.<br/>{verify_url}",
+    )
+    elements.append(Spacer(1, 4 * mm))
     elements.append(Paragraph("Généré par MobiBiz", small))
 
     doc.build(elements)

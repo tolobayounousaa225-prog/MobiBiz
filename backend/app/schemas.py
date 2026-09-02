@@ -665,6 +665,23 @@ class PlanOut(BaseModel):
     avantages: list[str]
 
 
+# ---------- Vérification publique (QR de certification) ----------
+class OrderVerificationOut(BaseModel):
+    numero: str
+    boutique_nom: str
+    date: datetime
+    total: float
+    statut: OrderStatus
+    paiement_statut: PaiementStatut
+
+
+class PaymentVerificationOut(BaseModel):
+    reference: str
+    boutique_nom: str
+    montant: float
+    date_paiement: date_type
+
+
 # ---------- Statistiques d'évolution ----------
 class MonthlyStatOut(BaseModel):
     mois: str  # "2026-09"

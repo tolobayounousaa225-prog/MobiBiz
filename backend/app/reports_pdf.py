@@ -11,6 +11,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 
 from . import models, schemas
+from .pdf_utils import shop_header_elements
 
 _STYLES = getSampleStyleSheet()
 _TITLE = ParagraphStyle("ReportTitle", parent=_STYLES["Title"], fontSize=20, spaceAfter=2 * mm)
@@ -31,16 +32,18 @@ def _period_label(date_debut: date | None, date_fin: date | None) -> str:
     return "Toute la période"
 
 
-def _base_doc(shop: "models.Shop", subtitle: str, date_debut: date | None, date_fin: date | None) -> tuple[SimpleDocTemplate, io.BytesIO, list]:
+def _base_doc(
+    shop: "models.Shop", subtitle: str, date_debut: date | None, date_fin: date | None,
+    logo_bytes: bytes | None = None,
+) -> tuple[SimpleDocTemplate, io.BytesIO, list]:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=20 * mm, bottomMargin=20 * mm)
-    elements = [
-        Paragraph(shop.nom, _TITLE),
+    elements = shop_header_elements(shop.nom, logo_bytes, _TITLE, [
         Paragraph(subtitle, _STYLES["Heading2"]),
         Paragraph(_period_label(date_debut, date_fin), _SMALL),
         Paragraph(f"Généré le {date.today().strftime('%d/%m/%Y')}", _SMALL),
-        Spacer(1, 8 * mm),
-    ]
+    ])
+    elements.append(Spacer(1, 8 * mm))
     return doc, buffer, elements
 
 
@@ -78,8 +81,9 @@ def generate_sales_report_pdf(
     orders: list["models.Order"],
     date_debut: date | None,
     date_fin: date | None,
+    logo_bytes: bytes | None = None,
 ) -> bytes:
-    doc, buffer, elements = _base_doc(shop, "Rapport de ventes", date_debut, date_fin)
+    doc, buffer, elements = _base_doc(shop, "Rapport de ventes", date_debut, date_fin, logo_bytes)
 
     chiffre_affaires = sum(o.total for o in orders)
     nombre_commandes = len(orders)
@@ -136,8 +140,9 @@ def generate_finance_report_pdf(
     expenses: list["models.Expense"],
     date_debut: date | None,
     date_fin: date | None,
+    logo_bytes: bytes | None = None,
 ) -> bytes:
-    doc, buffer, elements = _base_doc(shop, "Rapport financier", date_debut, date_fin)
+    doc, buffer, elements = _base_doc(shop, "Rapport financier", date_debut, date_fin, logo_bytes)
 
     elements.append(_kpi_table([
         ("Chiffre d'affaires", _fcfa(summary.chiffre_affaires)),

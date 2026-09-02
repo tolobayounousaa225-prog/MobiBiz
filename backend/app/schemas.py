@@ -113,6 +113,7 @@ class ShopOut(ShopIn):
     essai_expire_le: date_type | None = None
     referral_code: str
     nombre_parrainages: int = 0
+    logo_display_url: str | None = None
     created_at: datetime
 
 
@@ -537,6 +538,7 @@ class SubscriptionPaymentOut(BaseModel):
     id: int
     montant: float
     date_paiement: date_type
+    recu_url: str | None = None
     created_at: datetime
 
 

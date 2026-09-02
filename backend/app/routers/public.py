@@ -78,7 +78,7 @@ def get_public_shop(slug: str, db: Session = Depends(get_db)):
         whatsapp=shop.whatsapp,
         adresse=shop.adresse,
         commune=shop.commune,
-        logo_url=shop.logo_url,
+        logo_url=shop.logo_display_url,
         produits=[_to_public_product(p, stats) for p in products],
         categories=categories,
     )

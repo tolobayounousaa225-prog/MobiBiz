@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
-from .. import models, schemas
+from .. import models, schemas, storage
 from ..database import get_db
 from ..deps import get_current_shop, require_module
 from ..invoice import generate_invoice_pdf
@@ -185,7 +185,7 @@ def get_order(order_id: int, shop: models.Shop = Depends(get_current_shop), db: 
 @router.get("/{order_id}/facture.pdf")
 def get_order_invoice(order_id: int, shop: models.Shop = Depends(get_current_shop), db: Session = Depends(get_db)):
     order = _get_owned_order(db, shop, order_id)
-    pdf_bytes = generate_invoice_pdf(order, shop)
+    pdf_bytes = generate_invoice_pdf(order, shop, storage.get_shop_logo_bytes(db, shop))
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

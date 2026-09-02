@@ -1,11 +1,11 @@
 import io
 
 import qrcode
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import models, schemas, storage
 from ..database import get_db
 from ..deps import get_current_shop, require_owner
 from ..plans import plan_limit
@@ -80,6 +80,84 @@ def pending_actions(shop: models.Shop = Depends(get_current_shop), db: Session =
         .count()
     )
     return schemas.PendingActionsOut(commandes=commandes, stock=stock, avis=avis)
+
+
+@router.get("/{shop_id}/logo")
+def get_shop_logo(shop_id: int, db: Session = Depends(get_db)):
+    """Public (pas d'authentification) — affiché sur la boutique publique et dans
+    l'espace propriétaire, même logique que la photo produit."""
+    shop = db.get(models.Shop, shop_id)
+    if shop is None or not shop.logo_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Logo introuvable")
+    stored = storage.get_stored_file(db, shop.logo_path)
+    if stored is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Logo introuvable")
+    return Response(content=stored.data, media_type=stored.content_type)
+
+
+@router.post("/logo", response_model=schemas.ShopOut)
+async def upload_shop_logo(
+    file: UploadFile,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_owner),
+    db: Session = Depends(get_db),
+):
+    try:
+        path = await storage.save_upload(db, file, "boutiques", storage.ALLOWED_PHOTO_EXT)
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+
+    storage.delete_stored_file(db, shop.logo_path)
+    shop.logo_path = path
+    db.commit()
+    db.refresh(shop)
+    return shop
+
+
+@router.delete("/logo", response_model=schemas.ShopOut)
+def remove_shop_logo(
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_owner),
+    db: Session = Depends(get_db),
+):
+    storage.delete_stored_file(db, shop.logo_path)
+    shop.logo_path = None
+    db.commit()
+    db.refresh(shop)
+    return shop
+
+
+@router.get("/paiements", response_model=list[schemas.SubscriptionPaymentOut])
+def list_my_subscription_payments(shop: models.Shop = Depends(get_current_shop), db: Session = Depends(get_db)):
+    return (
+        db.query(models.SubscriptionPayment)
+        .filter(models.SubscriptionPayment.shop_id == shop.id)
+        .order_by(models.SubscriptionPayment.date_paiement.desc())
+        .all()
+    )
+
+
+@router.get("/paiements/{payment_id}/recu.pdf")
+def download_payment_receipt(
+    payment_id: int,
+    shop: models.Shop = Depends(get_current_shop),
+    db: Session = Depends(get_db),
+):
+    payment = (
+        db.query(models.SubscriptionPayment)
+        .filter(models.SubscriptionPayment.id == payment_id, models.SubscriptionPayment.shop_id == shop.id)
+        .first()
+    )
+    if payment is None or not payment.recu_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reçu introuvable")
+    stored = storage.get_stored_file(db, payment.recu_path)
+    if stored is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reçu introuvable")
+    return Response(
+        content=stored.data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="recu-{payment.date_paiement}.pdf"'},
+    )
 
 
 @router.get("/wave-qr.png")

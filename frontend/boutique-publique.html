@@ -67,6 +67,7 @@
   function renderShop() {
     document.body.insertAdjacentHTML("afterbegin", `
       <div class="shop-header">
+        ${shopData.logo_url ? `<img src="${API_BASE}${shopData.logo_url}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px;margin-bottom:10px;border:2px solid rgba(255,255,255,.2)">` : ""}
         <h1>${shopData.nom}</h1>
         ${shopData.description ? `<p>${shopData.description}</p>` : ""}
         ${shopData.commune ? `<p>📍 ${shopData.commune}</p>` : ""}

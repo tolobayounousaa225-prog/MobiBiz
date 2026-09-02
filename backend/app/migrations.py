@@ -128,6 +128,10 @@ def run_startup_migrations() -> None:
         "essai_expire_le": "DATE",
         "referral_code": "VARCHAR(20)",
         "referred_by_shop_id": "INTEGER",
+        "logo_path": "VARCHAR(300)",
+    })
+    _add_columns_if_missing(inspector, "subscription_payments", {
+        "recu_path": "VARCHAR(300)",
     })
 
     if inspector.has_table("users"):

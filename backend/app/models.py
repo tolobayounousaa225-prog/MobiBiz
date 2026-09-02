@@ -198,6 +198,11 @@ class Shop(Base):
     adresse: Mapped[str | None] = mapped_column(String(255), nullable=True)
     commune: Mapped[str | None] = mapped_column(String(120), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Chemin de stockage interne du logo uploadé (StoredFile), même mécanisme que
+    # Product.image_path — logo_url ci-dessus n'a jamais été exploité (toujours
+    # envoyé à null par le frontend) et reste inutilisé, gardé pour ne pas casser
+    # une colonne déjà en production sans bénéfice à la supprimer.
+    logo_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
     wave_payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
     boutique_publique_active: Mapped[bool] = mapped_column(Boolean, default=False)
     referral_code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
@@ -217,6 +222,10 @@ class Shop(Base):
     notifications: Mapped[list["Notification"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     abonnement_paiements: Mapped[list["SubscriptionPayment"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
     tickets: Mapped[list["SupportTicket"]] = relationship(back_populates="shop", cascade="all, delete-orphan")
+
+    @property
+    def logo_display_url(self) -> str | None:
+        return f"/api/boutique/{self.id}/logo" if self.logo_path else None
 
     @property
     def nombre_parrainages(self) -> int:
@@ -488,9 +497,17 @@ class SubscriptionPayment(Base):
     shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id"), index=True)
     montant: Mapped[float] = mapped_column(Float)
     date_paiement: Mapped[date_type] = mapped_column(Date)
+    # Reçu PDF généré automatiquement à l'enregistrement, stocké en base (StoredFile)
+    # comme tout autre fichier — consultable par la boutique elle-même pour
+    # traçabilité, indépendamment de ce que l'admin a pu oublier de communiquer.
+    recu_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     shop: Mapped["Shop"] = relationship(back_populates="abonnement_paiements")
+
+    @property
+    def recu_url(self) -> str | None:
+        return f"/api/boutique/paiements/{self.id}/recu.pdf" if self.recu_path else None
 
 
 class PlatformSettings(Base):

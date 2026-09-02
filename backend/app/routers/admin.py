@@ -9,11 +9,13 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import models, schemas, storage
 from ..audit import log_admin_action
 from ..database import get_db
 from ..deps import require_admin, require_super_admin
+from ..notifications import notify
 from ..plans import PAYMENT_VALIDITY_DAYS, PLAN_FEATURES
+from ..receipt_pdf import generate_payment_receipt_pdf
 from ..security_utils import csv_safe
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -152,8 +154,18 @@ def record_shop_payment(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Date invalide (format attendu AAAA-MM-JJ)")
 
-    db.add(models.SubscriptionPayment(shop_id=shop.id, montant=payload.montant, date_paiement=parsed_date))
+    payment = models.SubscriptionPayment(shop_id=shop.id, montant=payload.montant, date_paiement=parsed_date)
+    db.add(payment)
+    db.flush()  # nécessaire pour avoir payment.id avant de générer le reçu
+
+    pdf_bytes = generate_payment_receipt_pdf(shop, payment)
+    payment.recu_path = storage.save_bytes(db, pdf_bytes, "recus", f"recu-{payment.id}.pdf", "application/pdf")
+
     shop.prochain_paiement_le = parsed_date + timedelta(days=PAYMENT_VALIDITY_DAYS)
+    notify(
+        db, shop.id, models.NotificationType.PAIEMENT_RECU,
+        f"Paiement d'abonnement de {payload.montant:.0f} FCFA enregistré — reçu disponible dans votre espace.",
+    )
     log_admin_action(db, admin, "paiement_enregistre", "boutique", shop.id,
                       f"{payload.montant:.0f} FCFA le {payload.date_paiement} ({shop.nom})")
     db.commit()

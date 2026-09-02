@@ -240,6 +240,37 @@ de mise en page est partagé et le rendu peut devenir incorrect silencieusement.
   `renderAdminLayout()` selon le rôle réel — la page est partagée entre les deux
   espaces (mêmes endpoints `/api/auth/*`), il n'y avait pas besoin de la dupliquer.
 
+## Reçus de paiement + logo boutique (2026-09-02)
+
+- **Reçu de paiement d'abonnement traçable** ✅ — demande directe : à chaque
+  paiement enregistré par l'admin (`POST /api/admin/boutiques/{id}/paiements`),
+  un reçu PDF est généré immédiatement (`app/receipt_pdf.py`, émis au nom de
+  MobiBiz — la boutique est ici le payeur, pas l'émetteur) et rangé en base
+  (`SubscriptionPayment.recu_path`, `storage.save_bytes` — nouvelle variante de
+  `save_upload` pour les fichiers générés côté serveur plutôt qu'uploadés).
+  Consultable par la boutique elle-même via `GET /api/boutique/paiements` +
+  `GET /api/boutique/paiements/{id}/recu.pdf` (nouveau, scoping par
+  `get_current_shop` — une boutique ne peut pas deviner l'id d'un reçu d'une
+  autre), affiché dans une nouvelle section « Historique des paiements » sur
+  `boutique.html`. Déclenche aussi une notification in-app (réutilise
+  `NotificationType.PAIEMENT_RECU`) — traçabilité même si l'admin oublie de
+  prévenir de vive voix, objectif explicite de la demande.
+- **Logo boutique** ✅ — `Shop.logo_url` (colonne V1) n'avait en réalité jamais
+  été exploité : le frontend l'envoyait toujours à `null`. Ajouté `Shop.logo_path`
+  (stockage interne, StoredFile, même mécanisme que `Product.image_path`) et
+  `Shop.logo_display_url` (calculé) plutôt que de réutiliser telle quelle la
+  colonne existante — un attribut ORM mappé ne peut pas aussi porter une
+  `@property` du même nom. Upload/suppression depuis `boutique.html`
+  (`POST`/`DELETE /api/boutique/logo`), servi publiquement via
+  `GET /api/boutique/{id}/logo` (même logique que la photo produit). Affiché sur
+  la boutique publique (`boutique-publique.html`) et sur les documents PDF
+  téléchargeables — facture, rapport de ventes, rapport financier
+  (`app/pdf_utils.py::shop_header_elements`, partagé par `invoice.py` et
+  `reports_pdf.py` pour ne pas dupliquer la mise en page en-tête trois fois).
+  **Non couvert volontairement** : les étiquettes QR produit (`labels.py`,
+  planches 58×30mm — un logo y prendrait trop de place) et le reçu de paiement
+  d'abonnement (émis par MobiBiz, pas par la boutique, donc pas sa marque).
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

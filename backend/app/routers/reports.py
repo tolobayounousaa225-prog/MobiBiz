@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
-from .. import models, schemas
+from .. import models, schemas, storage
 from ..database import get_db
 from ..deps import get_current_shop
 from ..reports_pdf import generate_finance_report_pdf, generate_sales_report_pdf
@@ -117,7 +117,7 @@ def export_ventes_pdf(
         query = query.filter(models.Order.created_at < date_fin)
     orders = query.order_by(models.Order.created_at.desc()).all()
 
-    pdf_bytes = generate_sales_report_pdf(shop, orders, date_debut, date_fin)
+    pdf_bytes = generate_sales_report_pdf(shop, orders, date_debut, date_fin, storage.get_shop_logo_bytes(db, shop))
     return _pdf_response(pdf_bytes, "rapport-ventes.pdf")
 
 
@@ -154,5 +154,5 @@ def export_finances_pdf(
         depenses=depenses,
         benefice=chiffre_affaires - cout_produits - depenses,
     )
-    pdf_bytes = generate_finance_report_pdf(shop, summary, expenses, date_debut, date_fin)
+    pdf_bytes = generate_finance_report_pdf(shop, summary, expenses, date_debut, date_fin, storage.get_shop_logo_bytes(db, shop))
     return _pdf_response(pdf_bytes, "rapport-financier.pdf")

@@ -23,10 +23,16 @@
   const content = document.getElementById("pageContent");
   content.innerHTML = `
     <div class="card" style="max-width:560px" id="subscriptionCard"></div>
+    <div class="card" style="max-width:560px" id="paymentsCard"></div>
     <div class="card" style="max-width:560px" id="referralCard"></div>
     <div class="card" style="max-width:560px">
       <form id="shopForm">
-        <label for="s_nom">Nom de la boutique</label>
+        <label>Logo de la boutique</label>
+        <div id="logoPreview" style="margin-bottom:8px"></div>
+        <input type="file" id="s_logo" accept=".jpg,.jpeg,.png,.webp,.gif">
+        <p style="font-size:12px;color:var(--ink-soft);margin:4px 0 0">Affiché sur votre boutique publique et sur vos documents téléchargeables (factures, rapports).</p>
+
+        <label for="s_nom" style="margin-top:18px">Nom de la boutique</label>
         <input type="text" id="s_nom" required>
 
         <label for="s_description">Description</label>
@@ -104,6 +110,79 @@
     });
   }
 
+  function renderLogoPreview(shop) {
+    const box = document.getElementById("logoPreview");
+    if (!shop.logo_display_url) { box.innerHTML = ""; return; }
+    box.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px">
+        <img src="${API_BASE}${shop.logo_display_url}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+        <button type="button" class="btn danger small" id="removeLogoBtn">Retirer le logo</button>
+      </div>
+    `;
+    document.getElementById("removeLogoBtn").addEventListener("click", async () => {
+      try {
+        const updated = await api("/api/boutique/logo", { method: "DELETE" });
+        renderLogoPreview(updated);
+        toast("Logo retiré", "success");
+      } catch (err) { toast(err.message, "error"); }
+    });
+  }
+
+  document.getElementById("s_logo").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const updated = await api("/api/boutique/logo", { method: "POST", formData });
+      e.target.value = "";
+      renderLogoPreview(updated);
+      toast("Logo mis à jour", "success");
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  async function renderPaymentsCard() {
+    const box = document.getElementById("paymentsCard");
+    box.innerHTML = `
+      <h2>Historique des paiements d'abonnement</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Montant</th><th></th></tr></thead>
+          <tbody id="paymentsBody"><tr><td colspan="3" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    `;
+    try {
+      const payments = await api("/api/boutique/paiements");
+      document.getElementById("paymentsBody").innerHTML = payments.length === 0
+        ? `<tr><td colspan="3" class="empty">Aucun paiement enregistré pour l'instant</td></tr>`
+        : payments.map((p) => `
+            <tr>
+              <td>${fmtDate(p.date_paiement)}</td>
+              <td>${fmtFCFA(p.montant)}</td>
+              <td>${p.recu_url ? `<button class="btn secondary small" data-recu="${p.id}">Télécharger le reçu</button>` : "-"}</td>
+            </tr>
+          `).join("");
+      document.querySelectorAll("[data-recu]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            const blob = await api(`/api/boutique/paiements/${btn.dataset.recu}/recu.pdf`, { isBlob: true });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `recu-${btn.dataset.recu}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          } catch (err) { toast(err.message, "error"); }
+        });
+      });
+    } catch (err) {
+      document.getElementById("paymentsBody").innerHTML = `<tr><td colspan="3" class="empty">${err.message}</td></tr>`;
+    }
+  }
+
   async function renderSubscriptionCard(shop) {
     document.getElementById("subscriptionCard").innerHTML = `
       <h2>Abonnement</h2>
@@ -147,7 +226,9 @@
   async function load() {
     const shop = await api("/api/boutique");
     renderSubscriptionCard(shop);
+    renderPaymentsCard();
     renderReferralCard(shop);
+    renderLogoPreview(shop);
     document.getElementById("s_nom").value = shop.nom || "";
     document.getElementById("s_description").value = shop.description || "";
     document.getElementById("s_telephone").value = shop.telephone || "";
@@ -169,7 +250,6 @@
       whatsapp: document.getElementById("s_whatsapp").value.trim() || null,
       adresse: document.getElementById("s_adresse").value.trim() || null,
       commune: document.getElementById("s_commune").value.trim() || null,
-      logo_url: null,
       wave_payment_link: document.getElementById("s_wave").value.trim() || null,
       boutique_publique_active: document.getElementById("s_publique").checked,
     };

@@ -60,10 +60,26 @@ async def save_upload(db: Session, file: UploadFile | None, category: str, allow
     return logical_path
 
 
+def save_bytes(db: Session, data: bytes, category: str, filename: str, content_type: str) -> str:
+    """Enregistre des octets générés côté serveur (reçu PDF...) en base de données —
+    même mécanisme que save_upload mais sans passer par un UploadFile, pour les
+    fichiers que l'application produit elle-même plutôt qu'un utilisateur."""
+    logical_path = f"{category}/{uuid.uuid4().hex}_{filename}"
+    db.add(models.StoredFile(path=logical_path, content_type=content_type, data=data))
+    return logical_path
+
+
 def get_stored_file(db: Session, logical_path: str | None) -> "models.StoredFile | None":
     if not logical_path:
         return None
     return db.query(models.StoredFile).filter(models.StoredFile.path == logical_path).first()
+
+
+def get_shop_logo_bytes(db: Session, shop: "models.Shop") -> bytes | None:
+    """Raccourci utilisé par les générateurs de PDF (facture, rapports) pour
+    inclure le logo de la boutique en en-tête quand elle en a uploadé un."""
+    stored = get_stored_file(db, shop.logo_path)
+    return stored.data if stored else None
 
 
 def delete_stored_file(db: Session, logical_path: str | None) -> None:

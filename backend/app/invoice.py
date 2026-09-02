@@ -12,9 +12,10 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 
 from . import models
+from .pdf_utils import shop_header_elements
 
 
-def generate_invoice_pdf(order: "models.Order", shop: "models.Shop") -> bytes:
+def generate_invoice_pdf(order: "models.Order", shop: "models.Shop", logo_bytes: bytes | None = None) -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=20 * mm, bottomMargin=20 * mm)
     styles = getSampleStyleSheet()
@@ -22,12 +23,11 @@ def generate_invoice_pdf(order: "models.Order", shop: "models.Shop") -> bytes:
     normal = styles["Normal"]
     small = ParagraphStyle("Small", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#5b6072"))
 
-    elements = [
-        Paragraph(shop.nom, title_style),
-        Paragraph(
-            " · ".join(filter(None, [shop.adresse, shop.commune, shop.telephone])) or "",
-            small,
-        ),
+    elements = shop_header_elements(
+        shop.nom, logo_bytes, title_style,
+        [Paragraph(" · ".join(filter(None, [shop.adresse, shop.commune, shop.telephone])) or "", small)],
+    )
+    elements += [
         Spacer(1, 8 * mm),
         Paragraph(f"Facture — Commande {order.numero}", styles["Heading2"]),
         Paragraph(f"Date : {order.created_at.strftime('%d/%m/%Y')}", normal),

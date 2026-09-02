@@ -51,6 +51,7 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 .sidebar__brand span.dot { color: var(--orange); }
 
@@ -60,6 +61,7 @@ a { color: inherit; text-decoration: none; }
   color: #b6b9c9;
   border-bottom: 1px solid #2c2f3d;
   margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .sidebar nav {
@@ -67,6 +69,8 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
   gap: 2px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .sidebar nav a {
@@ -86,6 +90,7 @@ a { color: inherit; text-decoration: none; }
 .sidebar__footer {
   padding: 16px 20px 0;
   border-top: 1px solid #2c2f3d;
+  flex-shrink: 0;
 }
 .sidebar__footer button {
   width: 100%;

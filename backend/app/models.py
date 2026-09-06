@@ -507,6 +507,10 @@ class SubscriptionPayment(Base):
     # comme tout autre fichier — consultable par la boutique elle-même pour
     # traçabilité, indépendamment de ce que l'admin a pu oublier de communiquer.
     recu_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Jeton aléatoire utilisé dans la référence publique du reçu (PAY-{token}) —
+    # jamais l'id auto-incrémenté brut, qui serait énumérable par un tiers pour
+    # lister tous les paiements de la plateforme via /api/public/verification.
+    verification_token: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     shop: Mapped["Shop"] = relationship(back_populates="abonnement_paiements")

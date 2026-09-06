@@ -71,7 +71,7 @@
       ? `<tr><td colspan="4" class="empty">Aucun ticket envoyé pour l'instant</td></tr>`
       : tickets.map((t) => `
           <tr>
-            <td>${t.sujet}</td>
+            <td>${escapeHtml(t.sujet)}</td>
             <td>${badge(STATUT_LABELS, t.statut)}</td>
             <td>${fmtDate(t.created_at)}</td>
             <td><button class="btn secondary small" data-open="${t.id}">Ouvrir</button></td>
@@ -87,8 +87,8 @@
     document.getElementById("ticketModalTitle").textContent = ticket.sujet;
     document.getElementById("ticketMessages").innerHTML = ticket.messages.map((m) => `
       <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:12.5px;color:var(--ink-soft)">${m.auteur_role === "admin" ? "Support MobiBiz" : m.auteur_nom} — ${new Date(m.created_at).toLocaleString("fr-FR")}</div>
-        <div style="margin-top:2px">${m.message}</div>
+        <div style="font-size:12.5px;color:var(--ink-soft)">${m.auteur_role === "admin" ? "Support MobiBiz" : escapeHtml(m.auteur_nom)} — ${new Date(m.created_at).toLocaleString("fr-FR")}</div>
+        <div style="margin-top:2px">${escapeHtml(m.message)}</div>
       </div>
     `).join("");
     document.getElementById("replyMessage").value = "";

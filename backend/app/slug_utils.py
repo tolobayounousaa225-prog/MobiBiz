@@ -36,3 +36,12 @@ def generate_unique_referral_code(db: Session) -> str:
         code = "".join(random.choices(_REFERRAL_ALPHABET, k=6))
         if db.query(models.Shop).filter(models.Shop.referral_code == code).first() is None:
             return code
+
+
+def generate_unique_payment_verification_token(db: Session) -> str:
+    while True:
+        token = "".join(random.choices(_REFERRAL_ALPHABET, k=10))
+        if db.query(models.SubscriptionPayment).filter(
+            models.SubscriptionPayment.verification_token == token
+        ).first() is None:
+            return token

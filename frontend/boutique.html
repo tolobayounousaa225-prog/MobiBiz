@@ -197,7 +197,7 @@
         });
       });
     } catch (err) {
-      document.getElementById("paymentsBody").innerHTML = `<tr><td colspan="3" class="empty">${err.message}</td></tr>`;
+      document.getElementById("paymentsBody").innerHTML = `<tr><td colspan="3" class="empty">${escapeHtml(err.message)}</td></tr>`;
     }
   }
 

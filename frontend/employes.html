@@ -83,8 +83,8 @@
     }
     body.innerHTML = employees.map((e) => `
       <tr>
-        <td>${e.prenom} ${e.nom}</td>
-        <td>${e.telephone}</td>
+        <td>${escapeHtml(e.prenom)} ${escapeHtml(e.nom)}</td>
+        <td>${e.telephone ? escapeHtml(e.telephone) : "-"}</td>
         <td>${badge(ROLE_LABELS, e.employee_role)}</td>
         <td>${e.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Désactivé</span>`}</td>
         <td><button class="btn secondary small" data-edit="${e.id}">Modifier</button></td>

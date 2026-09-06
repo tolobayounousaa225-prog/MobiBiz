@@ -205,7 +205,7 @@ function initNotifBell() {
         ? `<p class="empty">Aucune notification</p>`
         : notifs.map((n) => `
             <div style="padding:9px 4px;border-bottom:1px solid var(--border);${n.lu ? "opacity:.55" : ""}">
-              <div style="font-size:13.5px">${NOTIF_ICONS[n.type] || "🔔"} ${n.message}</div>
+              <div style="font-size:13.5px">${NOTIF_ICONS[n.type] || "🔔"} ${escapeHtml(n.message)}</div>
               <div style="font-size:11px;color:var(--ink-soft);margin-top:2px">${fmtDate(n.created_at)}</div>
             </div>
           `).join("") + `<button class="btn secondary small" id="markAllReadBtn" style="width:100%;margin-top:8px">Tout marquer lu</button>`;
@@ -219,7 +219,7 @@ function initNotifBell() {
         });
       }
     } catch (err) {
-      dropdown.innerHTML = `<p class="empty">${err.message}</p>`;
+      dropdown.innerHTML = `<p class="empty">${escapeHtml(err.message)}</p>`;
     }
   }
 

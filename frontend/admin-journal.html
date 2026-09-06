@@ -49,9 +49,9 @@
       : entries.map((e) => `
           <tr>
             <td>${new Date(e.created_at).toLocaleString("fr-FR")}</td>
-            <td>${e.admin_nom}</td>
-            <td>${ACTION_LABELS[e.action] || e.action}</td>
-            <td style="white-space:normal">${e.details || "-"}</td>
+            <td>${escapeHtml(e.admin_nom)}</td>
+            <td>${escapeHtml(ACTION_LABELS[e.action] || e.action)}</td>
+            <td style="white-space:normal">${e.details ? escapeHtml(e.details) : "-"}</td>
           </tr>
         `).join("");
   }

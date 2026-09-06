@@ -168,7 +168,7 @@
 
   async function loadCategories() {
     categories = await api("/api/categories");
-    const options = categories.map((c) => `<option value="${c.id}">${c.nom}</option>`).join("");
+    const options = categories.map((c) => `<option value="${c.id}">${escapeHtml(c.nom)}</option>`).join("");
     document.getElementById("categoryFilter").innerHTML = `<option value="">Toutes les catégories</option>${options}`;
     document.getElementById("p_category").innerHTML = `<option value="">Aucune</option>${options}`;
     renderCategoryList();
@@ -182,7 +182,7 @@
     }
     list.innerHTML = categories.map((c) => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-        <span>${c.nom}</span>
+        <span>${escapeHtml(c.nom)}</span>
         <button class="btn danger small" data-del-cat="${c.id}">Supprimer</button>
       </div>
     `).join("");
@@ -226,7 +226,7 @@
         <tr>
           <td style="display:flex;align-items:center;gap:8px">
             ${p.image_url ? `<img src="${API_BASE}${p.image_url}" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0">` : ""}
-            <span>${p.nom}${p.reference ? ` <span style="color:var(--ink-soft)">(${p.reference})</span>` : ""}</span>
+            <span>${escapeHtml(p.nom)}${p.reference ? ` <span style="color:var(--ink-soft)">(${escapeHtml(p.reference)})</span>` : ""}</span>
           </td>
           <td>${p.category_id ? categoryName(p.category_id) : "-"}</td>
           <td>${fmtFCFA(p.prix_achat)}</td>
@@ -361,7 +361,7 @@
     }
     box.innerHTML = variants.map((v) => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px">
-        <span>${v.nom} — ${fmtFCFA(v.prix_vente)} · stock ${v.stock}</span>
+        <span>${escapeHtml(v.nom)} — ${fmtFCFA(v.prix_vente)} · stock ${v.stock}</span>
         <button type="button" class="btn danger small" data-del-variant="${v.id}">Supprimer</button>
       </div>
     `).join("");
@@ -428,10 +428,10 @@
         : reviews.map((r) => `
             <div style="padding:10px 0;border-bottom:1px solid var(--border)">
               <div style="display:flex;justify-content:space-between;align-items:center">
-                <strong>${r.nom_client}</strong>
+                <strong>${escapeHtml(r.nom_client)}</strong>
                 <span>${"★".repeat(r.note)}${"☆".repeat(5 - r.note)}</span>
               </div>
-              ${r.commentaire ? `<p style="margin:4px 0;font-size:13.5px">${r.commentaire}</p>` : ""}
+              ${r.commentaire ? `<p style="margin:4px 0;font-size:13.5px">${escapeHtml(r.commentaire)}</p>` : ""}
               <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
                 <span style="font-size:11px;color:var(--ink-soft)">${fmtDate(r.created_at)}</span>
                 <div style="display:flex;gap:6px">
@@ -447,7 +447,7 @@
       list.querySelectorAll("[data-hide]").forEach((btn) => btn.addEventListener("click", () => moderateReview(product, btn.dataset.hide, false)));
       list.querySelectorAll("[data-del-review]").forEach((btn) => btn.addEventListener("click", () => deleteReview(product, btn.dataset.delReview)));
     } catch (err) {
-      list.innerHTML = `<p class="empty">${err.message}</p>`;
+      list.innerHTML = `<p class="empty">${escapeHtml(err.message)}</p>`;
     }
   }
 
@@ -606,7 +606,7 @@
       if (result.erreurs.length > 0) {
         html += `<p style="color:var(--red)">${result.erreurs.length} ligne(s) en erreur :</p>
           <ul style="font-size:13px;color:var(--ink-soft)">
-            ${result.erreurs.map((e) => `<li>Ligne ${e.ligne} : ${e.message}</li>`).join("")}
+            ${result.erreurs.map((e) => `<li>Ligne ${e.ligne} : ${escapeHtml(e.message)}</li>`).join("")}
           </ul>`;
       }
       resultBox.innerHTML = html;

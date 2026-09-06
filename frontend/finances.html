@@ -82,7 +82,7 @@
       <tr>
         <td>${fmtDate(x.date)}</td>
         <td>${CATEGORY_LABELS[x.categorie] || x.categorie}</td>
-        <td>${x.libelle}</td>
+        <td>${escapeHtml(x.libelle)}</td>
         <td>${fmtFCFA(x.montant)}</td>
         <td><button class="btn danger small" data-del="${x.id}">Supprimer</button></td>
       </tr>

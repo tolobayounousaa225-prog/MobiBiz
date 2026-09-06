@@ -58,7 +58,7 @@
       const roleLabel = user.role === "owner" ? "Propriétaire" : (EMPLOYEE_ROLE_LABELS[user.employee_role] || "Employé");
       document.getElementById("welcomeCard").style.display = "block";
       document.getElementById("welcomeCard").innerHTML = `
-        <span style="font-size:15px">👋 Bonjour, <strong>${user.prenom} ${user.nom}</strong></span>
+        <span style="font-size:15px">👋 Bonjour, <strong>${escapeHtml(user.prenom)} ${escapeHtml(user.nom)}</strong></span>
         <span class="badge gray" style="margin-left:8px">${roleLabel}</span>
       `;
 
@@ -83,8 +83,8 @@
       } else {
         body.innerHTML = recent.map((o) => `
           <tr>
-            <td>${o.numero}</td>
-            <td>${o.customer_nom || "#" + o.customer_id}</td>
+            <td>${escapeHtml(o.numero)}</td>
+            <td>${o.customer_nom ? escapeHtml(o.customer_nom) : "#" + o.customer_id}</td>
             <td>${fmtFCFA(o.total)}</td>
             <td>${badge(ORDER_STATUS_LABELS, o.statut)}</td>
             <td>${badge(PAIEMENT_STATUS_LABELS, o.paiement_statut)}</td>

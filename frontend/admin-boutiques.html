@@ -123,8 +123,8 @@
     body.innerHTML = rows.map((s) => `
       <tr>
         <td><input type="checkbox" class="row-checkbox" data-id="${s.id}" style="width:auto" ${selectedIds.has(s.id) ? "checked" : ""}></td>
-        <td>${s.nom}${s.verifiee ? ` <span class="badge blue" title="Boutique vérifiée">✓</span>` : ""}</td>
-        <td>${s.proprietaire_nom}<br><span style="color:var(--ink-soft);font-size:12px">${s.proprietaire_telephone}</span></td>
+        <td>${escapeHtml(s.nom)}${s.verifiee ? ` <span class="badge blue" title="Boutique vérifiée">✓</span>` : ""}</td>
+        <td>${escapeHtml(s.proprietaire_nom)}<br><span style="color:var(--ink-soft);font-size:12px">${escapeHtml(s.proprietaire_telephone)}</span></td>
         <td>${PLAN_LABELS[s.abonnement_plan] || s.abonnement_plan}</td>
         <td>${badge(STATUS_LABELS, s.abonnement_statut)}</td>
         <td>${paymentDueBadge(s.prochain_paiement_le)}</td>

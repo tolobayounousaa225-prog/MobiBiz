@@ -113,7 +113,7 @@
     document.getElementById("alertsCard").style.display = alerts.length ? "block" : "none";
     document.getElementById("alertsBody").innerHTML = alerts.map((p) => `
       <tr>
-        <td>${p.nom}</td>
+        <td>${escapeHtml(p.nom)}</td>
         <td>${p.stock === 0 ? `<span class="badge red">Épuisé</span>` : `<span class="badge amber">${p.stock}</span>`}</td>
         <td>${p.seuil_alerte}</td>
         <td><button class="btn small" data-adjust="${p.id}">Ajuster</button></td>
@@ -126,7 +126,7 @@
     } else {
       body.innerHTML = products.map((p) => `
         <tr>
-          <td>${p.nom}</td>
+          <td>${escapeHtml(p.nom)}</td>
           <td>${p.stock}</td>
           <td>${p.seuil_alerte}</td>
           <td><button class="btn secondary small" data-adjust="${p.id}">Ajuster</button></td>
@@ -156,7 +156,7 @@
               <td>${fmtDate(m.created_at)}</td>
               <td>${MOVEMENT_LABELS[m.type] || m.type}</td>
               <td>${m.quantite > 0 ? "+" : ""}${m.quantite}</td>
-              <td>${m.motif || "-"}</td>
+              <td>${m.motif ? escapeHtml(m.motif) : "-"}</td>
             </tr>
           `).join("");
     } catch (err) { toast(err.message, "error"); }
@@ -187,7 +187,7 @@
   function statRow(s, valueLabel, valueFmt) {
     return `
       <tr>
-        <td>${s.nom}</td>
+        <td>${escapeHtml(s.nom)}</td>
         <td>${s.quantite_vendue}</td>
         <td>${fmtFCFA(s.chiffre_affaires)}</td>
         <td>${s.stock}</td>
@@ -218,7 +218,7 @@
       ? `<tr><td colspan="4" class="empty">Aucun stock dormant 🎉</td></tr>`
       : stats.stock_dormant.map((s) => `
           <tr>
-            <td>${s.nom}</td>
+            <td>${escapeHtml(s.nom)}</td>
             <td>${s.stock}</td>
             <td>${fmtFCFA(s.valeur_stock)}</td>
             <td><button class="btn secondary small" data-adjust="${s.product_id}">Ajuster</button></td>

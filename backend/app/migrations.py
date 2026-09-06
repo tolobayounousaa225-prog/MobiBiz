@@ -53,6 +53,32 @@ def _backfill_referral_codes() -> None:
         db.close()
 
 
+def _backfill_payment_verification_tokens() -> None:
+    """Les paiements enregistrés avant l'introduction du jeton de vérification
+    utilisaient PAY-{id:06d} (énumérable) comme référence publique, déjà imprimée
+    sur des reçus PDF existants — on leur attribue ce même format comme jeton
+    plutôt qu'un jeton aléatoire, pour que ces reçus déjà émis restent
+    vérifiables. Seuls les paiements créés après ce backfill reçoivent un jeton
+    aléatoire (voir generate_unique_payment_verification_token)."""
+    from .database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        from . import models
+
+        paiements_sans_jeton = db.query(models.SubscriptionPayment).filter(
+            (models.SubscriptionPayment.verification_token.is_(None))
+            | (models.SubscriptionPayment.verification_token == "")
+        ).all()
+        for payment in paiements_sans_jeton:
+            payment.verification_token = f"{payment.id:06d}"
+        if paiements_sans_jeton:
+            db.commit()
+            logger.info("Jeton de vérification généré pour %d paiement(s) existant(s).", len(paiements_sans_jeton))
+    finally:
+        db.close()
+
+
 def _backfill_admin_roles() -> None:
     """Les comptes admin créés avant l'introduction des rôles admin (SUPER/SUPPORT)
     n'ont pas de admin_role — les traiter comme SUPER (accès complet, comportement
@@ -133,6 +159,7 @@ def run_startup_migrations() -> None:
     })
     _add_columns_if_missing(inspector, "subscription_payments", {
         "recu_path": "VARCHAR(300)",
+        "verification_token": "VARCHAR(20)",
     })
 
     if inspector.has_table("users"):
@@ -196,6 +223,8 @@ def run_startup_migrations() -> None:
         _backfill_referral_codes()
     if inspector.has_table("users"):
         _backfill_admin_roles()
+    if inspector.has_table("subscription_payments"):
+        _backfill_payment_verification_tokens()
 
     # Contrainte d'unicité posée après coup (une fois tous les slugs backfillés) —
     # jamais directement dans l'ALTER TABLE ci-dessus, qui tournerait avant le
@@ -212,3 +241,10 @@ def run_startup_migrations() -> None:
             with engine.begin() as conn:
                 conn.execute(text("CREATE UNIQUE INDEX ix_shops_referral_code ON shops (referral_code)"))
             logger.info("Index unique posé sur shops.referral_code.")
+    if inspector.has_table("subscription_payments"):
+        existing_indexes = {idx["name"] for idx in inspector.get_indexes("subscription_payments")}
+        existing_constraints = {c["name"] for c in inspector.get_unique_constraints("subscription_payments")}
+        if "ix_subscription_payments_verification_token" not in existing_indexes and "subscription_payments_verification_token_key" not in existing_constraints:
+            with engine.begin() as conn:
+                conn.execute(text("CREATE UNIQUE INDEX ix_subscription_payments_verification_token ON subscription_payments (verification_token)"))
+            logger.info("Index unique posé sur subscription_payments.verification_token.")

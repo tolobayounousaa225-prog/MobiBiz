@@ -85,9 +85,9 @@
     }
     body.innerHTML = rows.map((c) => `
       <tr>
-        <td>${c.nom}</td>
-        <td>${c.telephone || "-"}</td>
-        <td>${c.commune || "-"}</td>
+        <td>${escapeHtml(c.nom)}</td>
+        <td>${c.telephone ? escapeHtml(c.telephone) : "-"}</td>
+        <td>${c.commune ? escapeHtml(c.commune) : "-"}</td>
         <td>${badge(SEGMENT_LABELS, c.segment)}</td>
         <td>${fmtFCFA(c.total_achats)}</td>
         <td>${c.nombre_commandes}</td>

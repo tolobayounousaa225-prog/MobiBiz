@@ -80,6 +80,18 @@ async function api(path, { method = "GET", body, formData, isBlob = false } = {}
   return res.json();
 }
 
+// Échappe le texte injecté dans un gabarit innerHTML — indispensable pour tout
+// champ saisi par un utilisateur (nom de boutique/produit/client, commentaire,
+// message...) : sans ça, une boutique ou un client malveillant pourrait stocker
+// un script qui s'exécute dans la session d'un AUTRE utilisateur qui consulte
+// cette donnée plus tard (ex. un nom de boutique piégé exécuté dans le
+// navigateur de l'administrateur qui consulte admin-boutiques.html).
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[ch]);
+}
+
 function toast(message, type = "") {
   let wrap = document.querySelector(".toast-wrap");
   if (!wrap) {

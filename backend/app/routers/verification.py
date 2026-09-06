@@ -35,12 +35,11 @@ def verify_payment(reference: str, request: Request, db: Session = Depends(get_d
     not_found = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucun paiement ne correspond à ce reçu")
     if not reference.upper().startswith("PAY-"):
         raise not_found
-    try:
-        payment_id = int(reference.upper().removeprefix("PAY-"))
-    except ValueError:
-        raise not_found
+    token = reference.upper().removeprefix("PAY-")
 
-    payment = db.get(models.SubscriptionPayment, payment_id)
+    payment = db.query(models.SubscriptionPayment).filter(
+        models.SubscriptionPayment.verification_token == token
+    ).first()
     if payment is None:
         raise not_found
     return schemas.PaymentVerificationOut(

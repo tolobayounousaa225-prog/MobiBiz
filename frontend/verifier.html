@@ -51,7 +51,7 @@
       <p style="font-size:40px;margin:10px 0">✅</p>
       <p style="color:var(--green);font-weight:700;font-size:17px">Facture authentique</p>
       <div style="text-align:left;margin-top:18px;font-size:14px">
-        <p><strong>Boutique :</strong> ${data.boutique_nom}</p>
+        <p><strong>Boutique :</strong> ${escapeHtml(data.boutique_nom)}</p>
         <p><strong>Commande :</strong> ${data.numero}</p>
         <p><strong>Date :</strong> ${fmtDate(data.date)}</p>
         <p><strong>Total :</strong> ${fmtFCFA(data.total)}</p>
@@ -67,7 +67,7 @@
       <p style="font-size:40px;margin:10px 0">✅</p>
       <p style="color:var(--green);font-weight:700;font-size:17px">Reçu authentique</p>
       <div style="text-align:left;margin-top:18px;font-size:14px">
-        <p><strong>Boutique :</strong> ${data.boutique_nom}</p>
+        <p><strong>Boutique :</strong> ${escapeHtml(data.boutique_nom)}</p>
         <p><strong>Référence :</strong> ${data.reference}</p>
         <p><strong>Montant :</strong> ${fmtFCFA(data.montant)}</p>
         <p><strong>Date de paiement :</strong> ${fmtDate(data.date_paiement)}</p>

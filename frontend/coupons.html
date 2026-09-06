@@ -88,7 +88,7 @@
       const usage = c.usage_max ? `${c.usage_compte} / ${c.usage_max}` : `${c.usage_compte} (illimité)`;
       return `
         <tr>
-          <td><strong>${c.code}</strong></td>
+          <td><strong>${escapeHtml(c.code)}</strong></td>
           <td>${c.type === "pourcentage" ? "Pourcentage" : "Montant fixe"}</td>
           <td>${valeur}</td>
           <td>${validite}</td>

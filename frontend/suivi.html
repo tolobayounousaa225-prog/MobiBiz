@@ -79,19 +79,19 @@
 
   function renderOrder(data) {
     const livraisonLines = [];
-    if (data.mode_livraison) livraisonLines.push(`<p><strong>Livraison :</strong> ${DELIVERY_MODE_LABELS[data.mode_livraison] || data.mode_livraison}</p>`);
-    if (data.livreur_nom) livraisonLines.push(`<p><strong>Livreur :</strong> ${data.livreur_nom}</p>`);
-    if (data.adresse_livraison) livraisonLines.push(`<p><strong>Adresse :</strong> ${data.adresse_livraison}${data.commune_livraison ? `, ${data.commune_livraison}` : ""}</p>`);
+    if (data.mode_livraison) livraisonLines.push(`<p><strong>Livraison :</strong> ${escapeHtml(DELIVERY_MODE_LABELS[data.mode_livraison] || data.mode_livraison)}</p>`);
+    if (data.livreur_nom) livraisonLines.push(`<p><strong>Livreur :</strong> ${escapeHtml(data.livreur_nom)}</p>`);
+    if (data.adresse_livraison) livraisonLines.push(`<p><strong>Adresse :</strong> ${escapeHtml(data.adresse_livraison)}${data.commune_livraison ? `, ${escapeHtml(data.commune_livraison)}` : ""}</p>`);
     if (data.heure_livraison_prevue) livraisonLines.push(`<p><strong>Livraison prévue :</strong> ${fmtDate(data.heure_livraison_prevue)}</p>`);
 
     card.innerHTML = `${header()}
-      <p style="text-align:center;color:var(--ink-soft);font-size:13px;margin-top:0">Commande <strong>${data.numero}</strong> — ${data.boutique_nom}</p>
+      <p style="text-align:center;color:var(--ink-soft);font-size:13px;margin-top:0">Commande <strong>${escapeHtml(data.numero)}</strong> — ${escapeHtml(data.boutique_nom)}</p>
       ${renderTimeline(data)}
       <div style="border-top:1px solid var(--border);padding-top:12px;font-size:13.5px">
         <p><strong>Total :</strong> ${fmtFCFA(data.total)}</p>
         <p><strong>Paiement :</strong> ${badge(PAIEMENT_STATUS_LABELS, data.paiement_statut)}</p>
         ${livraisonLines.join("")}
-        ${data.items.length ? `<p style="margin-top:10px"><strong>Articles :</strong></p><ul style="margin:4px 0 0;padding-left:18px">${data.items.map((it) => `<li>${it.nom}${it.variante ? ` (${it.variante})` : ""} × ${it.quantite}</li>`).join("")}</ul>` : ""}
+        ${data.items.length ? `<p style="margin-top:10px"><strong>Articles :</strong></p><ul style="margin:4px 0 0;padding-left:18px">${data.items.map((it) => `<li>${escapeHtml(it.nom)}${it.variante ? ` (${escapeHtml(it.variante)})` : ""} × ${it.quantite}</li>`).join("")}</ul>` : ""}
       </div>
     `;
   }

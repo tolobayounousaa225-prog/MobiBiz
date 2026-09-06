@@ -107,8 +107,8 @@
           <tbody>
             ${targets.map((c) => `
               <tr>
-                <td>${c.nom}</td>
-                <td>${c.telephone}</td>
+                <td>${escapeHtml(c.nom)}</td>
+                <td>${escapeHtml(c.telephone)}</td>
                 <td><a class="btn small" target="_blank" rel="noopener" href="${waLink(c.telephone, template.replace(/\{nom\}/g, c.nom))}">Envoyer</a></td>
               </tr>
             `).join("")}

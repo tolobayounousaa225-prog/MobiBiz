@@ -25,7 +25,7 @@ def generate_payment_receipt_pdf(shop: "models.Shop", payment: "models.Subscript
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=25 * mm, bottomMargin=25 * mm)
 
-    reference = f"PAY-{payment.id:06d}"
+    reference = f"PAY-{payment.verification_token}"
     rows = [
         ["Boutique", shop.nom],
         ["Montant réglé", f"{payment.montant:,.0f} FCFA".replace(",", " ")],

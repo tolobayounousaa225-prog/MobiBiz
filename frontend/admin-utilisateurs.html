@@ -88,10 +88,10 @@
       ? `<tr><td colspan="6" class="empty">Aucun utilisateur trouvé</td></tr>`
       : rows.map((u) => `
           <tr>
-            <td>${u.prenom} ${u.nom}</td>
-            <td>${u.telephone}</td>
-            <td>${badge(ROLE_LABELS, u.role)}${u.employee_role ? ` <span style="color:var(--ink-soft);font-size:12px">(${u.employee_role})</span>` : ""}</td>
-            <td>${u.boutique_nom || "-"}</td>
+            <td>${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</td>
+            <td>${escapeHtml(u.telephone)}</td>
+            <td>${badge(ROLE_LABELS, u.role)}${u.employee_role ? ` <span style="color:var(--ink-soft);font-size:12px">(${escapeHtml(u.employee_role)})</span>` : ""}</td>
+            <td>${u.boutique_nom ? escapeHtml(u.boutique_nom) : "-"}</td>
             <td>${u.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Désactivé</span>`}</td>
             <td>${fmtDate(u.created_at)}</td>
           </tr>
@@ -106,8 +106,8 @@
     const admins = await api("/api/admin/administrateurs");
     document.getElementById("adminsBody").innerHTML = admins.map((a) => `
       <tr>
-        <td>${a.prenom} ${a.nom}</td>
-        <td>${a.telephone}</td>
+        <td>${escapeHtml(a.prenom)} ${escapeHtml(a.nom)}</td>
+        <td>${escapeHtml(a.telephone)}</td>
         <td>${a.admin_role ? badge(ADMIN_ROLE_LABELS, a.admin_role) : "-"}</td>
         <td>${a.actif ? `<span class="badge green">Actif</span>` : `<span class="badge gray">Désactivé</span>`}</td>
         <td>${fmtDate(a.created_at)}</td>

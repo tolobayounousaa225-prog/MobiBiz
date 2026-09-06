@@ -17,6 +17,7 @@ from ..notifications import notify
 from ..plans import PAYMENT_VALIDITY_DAYS, PLAN_FEATURES
 from ..receipt_pdf import generate_payment_receipt_pdf
 from ..security_utils import csv_safe
+from ..slug_utils import generate_unique_payment_verification_token
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -233,7 +234,10 @@ def record_shop_payment(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Date invalide (format attendu AAAA-MM-JJ)")
 
-    payment = models.SubscriptionPayment(shop_id=shop.id, montant=payload.montant, date_paiement=parsed_date)
+    payment = models.SubscriptionPayment(
+        shop_id=shop.id, montant=payload.montant, date_paiement=parsed_date,
+        verification_token=generate_unique_payment_verification_token(db),
+    )
     db.add(payment)
     db.flush()  # nécessaire pour avoir payment.id avant de générer le reçu
 

@@ -102,14 +102,14 @@
       return;
     }
     const activeVariants = (product.variants || []).filter((v) => v.actif);
-    variantSelect.innerHTML = activeVariants.map((v) => `<option value="${v.id}">${v.nom} — ${fmtFCFA(v.prix_vente)} (stock ${v.stock})</option>`).join("");
+    variantSelect.innerHTML = activeVariants.map((v) => `<option value="${v.id}">${escapeHtml(v.nom)} — ${fmtFCFA(v.prix_vente)} (stock ${v.stock})</option>`).join("");
     variantSelect.classList.remove("hidden");
   }
 
   function addItemRow(productId, quantite) {
     itemRowCount += 1;
     const rowId = `item_${itemRowCount}`;
-    const options = products.map((p) => `<option value="${p.id}">${p.nom}${p.has_variants ? " (variantes)" : ` — ${fmtFCFA(p.prix_vente)} (stock ${p.stock})`}</option>`).join("");
+    const options = products.map((p) => `<option value="${p.id}">${escapeHtml(p.nom)}${p.has_variants ? " (variantes)" : ` — ${fmtFCFA(p.prix_vente)} (stock ${p.stock})`}</option>`).join("");
     const div = document.createElement("div");
     div.className = "field-row";
     div.style.marginTop = "6px";
@@ -165,7 +165,7 @@
     addItemRow();
     document.getElementById("o_customer").innerHTML =
       `<option value="">+ Nouveau client…</option>` +
-      customers.map((c) => `<option value="${c.id}">${c.nom}${c.telephone ? " — " + c.telephone : ""}</option>`).join("");
+      customers.map((c) => `<option value="${c.id}">${escapeHtml(c.nom)}${c.telephone ? " — " + escapeHtml(c.telephone) : ""}</option>`).join("");
     toggleNewCustomerFields();
     document.getElementById("newOrderBackdrop").classList.remove("hidden");
   }
@@ -238,8 +238,8 @@
     }
     body.innerHTML = rows.map((o) => `
       <tr>
-        <td>${o.numero}</td>
-        <td>${o.customer_nom || "#" + o.customer_id}</td>
+        <td>${escapeHtml(o.numero)}</td>
+        <td>${o.customer_nom ? escapeHtml(o.customer_nom) : "#" + o.customer_id}</td>
         <td>${o.items.reduce((s, i) => s + i.quantite, 0)}</td>
         <td>${fmtFCFA(o.total)}</td>
         <td>${badge(ORDER_STATUS_LABELS, o.statut)}</td>
@@ -263,11 +263,11 @@
     document.getElementById("detailTitle").textContent = `Commande ${order.numero}`;
     const nextStatuses = ORDER_STATUS_TRANSITIONS[order.statut] || [];
     const itemsHtml = order.items.map((i) => `
-      <tr><td>${productName(i.product_id)}${i.variant_nom ? ` <span style="color:var(--ink-soft)">(${i.variant_nom})</span>` : ""}</td><td>${i.quantite}</td><td>${fmtFCFA(i.prix_unitaire)}</td><td>${fmtFCFA(i.prix_unitaire * i.quantite)}</td></tr>
+      <tr><td>${escapeHtml(productName(i.product_id))}${i.variant_nom ? ` <span style="color:var(--ink-soft)">(${escapeHtml(i.variant_nom)})</span>` : ""}</td><td>${i.quantite}</td><td>${fmtFCFA(i.prix_unitaire)}</td><td>${fmtFCFA(i.prix_unitaire * i.quantite)}</td></tr>
     `).join("");
 
     document.getElementById("detailBody").innerHTML = `
-      <p><strong>Client :</strong> ${order.customer_nom || "#" + order.customer_id}</p>
+      <p><strong>Client :</strong> ${order.customer_nom ? escapeHtml(order.customer_nom) : "#" + order.customer_id}</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Produit</th><th>Qté</th><th>P.U.</th><th>Sous-total</th></tr></thead>
@@ -275,10 +275,10 @@
         </table>
       </div>
       <p style="margin-top:10px">
-        Réduction : ${fmtFCFA(order.reduction)}${order.coupon_code ? ` (code ${order.coupon_code})` : ""} — Livraison : ${fmtFCFA(order.frais_livraison)}<br>
+        Réduction : ${fmtFCFA(order.reduction)}${order.coupon_code ? ` (code ${escapeHtml(order.coupon_code)})` : ""} — Livraison : ${fmtFCFA(order.frais_livraison)}<br>
         <strong>Total : ${fmtFCFA(order.total)}</strong>
       </p>
-      ${order.notes ? `<p><strong>Notes :</strong> ${order.notes}</p>` : ""}
+      ${order.notes ? `<p><strong>Notes :</strong> ${escapeHtml(order.notes)}</p>` : ""}
 
       <button type="button" class="btn secondary small" id="downloadInvoiceBtn" style="margin-top:8px">Télécharger la facture (PDF)</button>
 
@@ -321,17 +321,17 @@
       </select>
 
       <div class="field-row">
-        <div><label for="detailLivreur">Livreur</label><input type="text" id="detailLivreur" value="${order.livreur_nom || ""}"></div>
+        <div><label for="detailLivreur">Livreur</label><input type="text" id="detailLivreur" value="${escapeHtml(order.livreur_nom || "")}"></div>
         <div><label for="detailHeure">Heure prévue</label><input type="datetime-local" id="detailHeure" value="${order.heure_livraison_prevue ? order.heure_livraison_prevue.slice(0, 16) : ""}"></div>
       </div>
 
       <div class="field-row">
-        <div><label for="detailAdresseLivraison">Adresse de livraison</label><input type="text" id="detailAdresseLivraison" value="${order.adresse_livraison || ""}"></div>
-        <div><label for="detailCommuneLivraison">Commune</label><input type="text" id="detailCommuneLivraison" value="${order.commune_livraison || ""}"></div>
+        <div><label for="detailAdresseLivraison">Adresse de livraison</label><input type="text" id="detailAdresseLivraison" value="${escapeHtml(order.adresse_livraison || "")}"></div>
+        <div><label for="detailCommuneLivraison">Commune</label><input type="text" id="detailCommuneLivraison" value="${escapeHtml(order.commune_livraison || "")}"></div>
       </div>
 
       <label for="detailPreuve">Preuve de livraison (note)</label>
-      <textarea id="detailPreuve" rows="2" placeholder="Ex: remis en main propre, signé par...">${order.preuve_livraison || ""}</textarea>
+      <textarea id="detailPreuve" rows="2" placeholder="Ex: remis en main propre, signé par...">${escapeHtml(order.preuve_livraison || "")}</textarea>
 
       <div class="form-actions">
         <button class="btn secondary" id="saveLivraisonBtn">Enregistrer la livraison</button>

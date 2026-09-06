@@ -68,10 +68,10 @@
     document.body.insertAdjacentHTML("afterbegin", `
       <div class="shop-header">
         ${shopData.logo_url ? `<img src="${API_BASE}${shopData.logo_url}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px;margin-bottom:10px;border:2px solid rgba(255,255,255,.2)">` : ""}
-        <h1>${shopData.nom}${shopData.verifiee ? ` <span class="badge blue" style="vertical-align:middle;font-size:11px" title="Boutique vérifiée par MobiBiz">✓ Vérifiée</span>` : ""}</h1>
-        ${shopData.description ? `<p>${shopData.description}</p>` : ""}
-        ${shopData.commune ? `<p>📍 ${shopData.commune}</p>` : ""}
-        ${shopData.whatsapp ? `<p>📱 WhatsApp : ${shopData.whatsapp}</p>` : ""}
+        <h1>${escapeHtml(shopData.nom)}${shopData.verifiee ? ` <span class="badge blue" style="vertical-align:middle;font-size:11px" title="Boutique vérifiée par MobiBiz">✓ Vérifiée</span>` : ""}</h1>
+        ${shopData.description ? `<p>${escapeHtml(shopData.description)}</p>` : ""}
+        ${shopData.commune ? `<p>📍 ${escapeHtml(shopData.commune)}</p>` : ""}
+        ${shopData.whatsapp ? `<p>📱 WhatsApp : ${escapeHtml(shopData.whatsapp)}</p>` : ""}
       </div>
       <div class="shop-wrap">
         <div class="category-tabs" id="categoryTabs"></div>
@@ -92,7 +92,7 @@
 
     const tabs = document.getElementById("categoryTabs");
     tabs.innerHTML = `<button class="active" data-cat="">Tous</button>` +
-      categories.map((c) => `<button data-cat="${c.id}">${c.nom}</button>`).join("");
+      categories.map((c) => `<button data-cat="${c.id}">${escapeHtml(c.nom)}</button>`).join("");
     tabs.querySelectorAll("button").forEach((btn) => {
       btn.addEventListener("click", () => {
         tabs.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
@@ -121,11 +121,11 @@
 
     grid.innerHTML = list.map((p) => `
       <div class="product-card">
-        ${p.image_url ? `<img src="${API_BASE}${p.image_url}" alt="${p.nom}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer" data-open="${p.id}">` : ""}
-        <div class="name" style="cursor:pointer" data-open="${p.id}">${p.nom}</div>
-        ${categoryName(p.category_id) ? `<div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:4px">${categoryName(p.category_id)}</div>` : ""}
+        ${p.image_url ? `<img src="${API_BASE}${p.image_url}" alt="${escapeHtml(p.nom)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer" data-open="${p.id}">` : ""}
+        <div class="name" style="cursor:pointer" data-open="${p.id}">${escapeHtml(p.nom)}</div>
+        ${categoryName(p.category_id) ? `<div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:4px">${escapeHtml(categoryName(p.category_id))}</div>` : ""}
         ${p.nombre_avis > 0 ? `<div style="font-size:12px;color:var(--ink-soft);margin-bottom:4px">${"★".repeat(Math.round(p.note_moyenne))}${"☆".repeat(5 - Math.round(p.note_moyenne))} (${p.nombre_avis})</div>` : ""}
-        <div class="desc">${p.description || ""}</div>
+        <div class="desc">${p.description ? escapeHtml(p.description) : ""}</div>
         <div class="price">${p.has_variants
           ? `dès ${fmtFCFA(Math.min(...p.variants.map((v) => v.prix_vente)))}`
           : (hasPromo(p)
@@ -202,7 +202,7 @@
     if (product.has_variants) {
       variantBox.innerHTML = `
         <label for="pd_variant">Choisissez une option</label>
-        <select id="pd_variant">${availableVariants.map((v) => `<option value="${v.id}">${v.nom} — ${fmtFCFA(v.prix_vente)} (stock ${v.stock})</option>`).join("")}</select>
+        <select id="pd_variant">${availableVariants.map((v) => `<option value="${v.id}">${escapeHtml(v.nom)} — ${fmtFCFA(v.prix_vente)} (stock ${v.stock})</option>`).join("")}</select>
       `;
     } else {
       variantBox.innerHTML = `<div class="price" style="margin:8px 0">${hasPromo(product)
@@ -233,8 +233,8 @@
         ? `<p class="empty">Aucun avis pour l'instant — soyez le premier !</p>`
         : summary.avis.map((r) => `
             <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-              <div style="display:flex;justify-content:space-between"><strong>${r.nom_client}</strong><span>${"★".repeat(r.note)}${"☆".repeat(5 - r.note)}</span></div>
-              ${r.commentaire ? `<p style="margin:4px 0;font-size:13px">${r.commentaire}</p>` : ""}
+              <div style="display:flex;justify-content:space-between"><strong>${escapeHtml(r.nom_client)}</strong><span>${"★".repeat(r.note)}${"☆".repeat(5 - r.note)}</span></div>
+              ${r.commentaire ? `<p style="margin:4px 0;font-size:13px">${escapeHtml(r.commentaire)}</p>` : ""}
             </div>
           `).join("");
       document.getElementById("pd_reviews").innerHTML = `
@@ -327,7 +327,7 @@
       const entries = Object.values(cart).filter((e) => e.qty > 0);
       document.getElementById("cartItemsList").innerHTML = entries.map((e) => `
         <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px">
-          <span>${e.product.nom}${e.variant ? ` (${e.variant.nom})` : ""} × ${e.qty}</span>
+          <span>${escapeHtml(e.product.nom)}${e.variant ? ` (${escapeHtml(e.variant.nom)})` : ""} × ${e.qty}</span>
           <span>${fmtFCFA(cartUnitPrice(e) * e.qty)}</span>
         </div>
       `).join("");
@@ -385,7 +385,7 @@
               box.innerHTML = `
                 <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Scannez avec l'app Wave pour payer ${fmtFCFA(result.total)} :</p>
                 <img src="${url}" alt="QR code Wave" style="width:170px;height:170px;border:1px solid var(--border);border-radius:8px;padding:8px;background:#fff">
-                ${shopData.telephone ? `<p style="font-size:12.5px;color:var(--ink-soft);margin-top:8px">Ou envoyez directement au numéro : <strong>${shopData.telephone}</strong></p>` : ""}
+                ${shopData.telephone ? `<p style="font-size:12.5px;color:var(--ink-soft);margin-top:8px">Ou envoyez directement au numéro : <strong>${escapeHtml(shopData.telephone)}</strong></p>` : ""}
                 <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Vous pouvez aussi ne rien faire et attendre que la boutique vous contacte.</p>
               `;
             } catch (err) {

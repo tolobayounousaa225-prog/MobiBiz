@@ -88,6 +88,9 @@ def login(payload: schemas.LoginIn, request: Request, db: Session = Depends(get_
     if not user.actif:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Compte désactivé")
 
+    user.last_login_at = models.now_utc()
+    db.commit()
+
     token = create_access_token(str(user.id))
     return schemas.TokenOut(access_token=token)
 

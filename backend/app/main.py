@@ -21,6 +21,7 @@ from .routers import (
     stock,
     subscription,
     support,
+    tracking,
     verification,
 )
 
@@ -54,6 +55,7 @@ app.include_router(admin.router)
 app.include_router(subscription.router)
 app.include_router(support.router)
 app.include_router(verification.router)
+app.include_router(tracking.router)
 
 
 @app.get("/api/health")

@@ -84,6 +84,7 @@ def get_public_shop(slug: str, db: Session = Depends(get_db)):
         commune=shop.commune,
         logo_url=shop.logo_display_url,
         a_un_lien_wave=bool(shop.wave_payment_link),
+        verifiee=shop.verifiee,
         produits=[_to_public_product(p, stats) for p in products],
         categories=categories,
     )

@@ -11,6 +11,7 @@ from ..database import get_db
 from ..deps import get_current_shop, require_any_module, require_module
 from ..labels import generate_product_labels_pdf
 from ..plans import plan_limit
+from ..share_image import generate_product_share_image
 
 router = APIRouter(prefix="/api/produits", tags=["produits"])
 
@@ -284,6 +285,27 @@ def get_product_labels(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="etiquettes-{product.id}.pdf"'},
+    )
+
+
+@router.get("/{product_id}/partage.png")
+def get_product_share_image(
+    product_id: int,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_module("produits")),
+    db: Session = Depends(get_db),
+):
+    product = _get_owned_product(db, shop, product_id)
+    photo_bytes = None
+    if product.image_path:
+        stored = storage.get_stored_file(db, product.image_path)
+        if stored:
+            photo_bytes = stored.data
+    png_bytes = generate_product_share_image(product, shop, photo_bytes)
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="partage-{product.id}.png"'},
     )
 
 

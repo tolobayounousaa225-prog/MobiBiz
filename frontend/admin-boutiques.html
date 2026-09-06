@@ -69,6 +69,10 @@
           ${Object.entries(PLAN_LABELS).map(([k, label]) => `<option value="${k}">${label}</option>`).join("")}
         </select>
 
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:14px">
+          <input type="checkbox" id="m_verifiee" style="width:auto"> Boutique vérifiée (badge affiché publiquement)
+        </label>
+
         <div class="form-actions">
           <button class="btn" id="saveShopBtn">Enregistrer</button>
           <button type="button" class="btn secondary hidden" id="impersonateBtn">Se connecter en tant que</button>
@@ -119,7 +123,7 @@
     body.innerHTML = rows.map((s) => `
       <tr>
         <td><input type="checkbox" class="row-checkbox" data-id="${s.id}" style="width:auto" ${selectedIds.has(s.id) ? "checked" : ""}></td>
-        <td>${s.nom}</td>
+        <td>${s.nom}${s.verifiee ? ` <span class="badge blue" title="Boutique vérifiée">✓</span>` : ""}</td>
         <td>${s.proprietaire_nom}<br><span style="color:var(--ink-soft);font-size:12px">${s.proprietaire_telephone}</span></td>
         <td>${PLAN_LABELS[s.abonnement_plan] || s.abonnement_plan}</td>
         <td>${badge(STATUS_LABELS, s.abonnement_statut)}</td>
@@ -234,6 +238,8 @@
     document.getElementById("shopModalOwner").textContent = `${shop.proprietaire_nom} — ${shop.proprietaire_telephone}`;
     document.getElementById("m_statut").value = shop.abonnement_statut;
     document.getElementById("m_plan").value = shop.abonnement_plan;
+    document.getElementById("m_verifiee").checked = !!shop.verifiee;
+    document.getElementById("m_verifiee").closest("label").classList.toggle("hidden", !isSuperAdmin);
     document.getElementById("pay_montant").value = "";
     document.getElementById("pay_date").value = new Date().toISOString().slice(0, 10);
     document.getElementById("impersonateBtn").classList.toggle("hidden", !isSuperAdmin);
@@ -273,12 +279,16 @@
     const shop = shops.find((s) => s.id === currentShopId);
     const newStatut = document.getElementById("m_statut").value;
     const newPlan = document.getElementById("m_plan").value;
+    const newVerifiee = document.getElementById("m_verifiee").checked;
     try {
       if (newStatut !== shop.abonnement_statut) {
         await api(`/api/admin/boutiques/${shop.id}/statut`, { method: "PATCH", body: { abonnement_statut: newStatut } });
       }
       if (newPlan !== shop.abonnement_plan) {
         await api(`/api/admin/boutiques/${shop.id}/abonnement`, { method: "PATCH", body: { abonnement_plan: newPlan } });
+      }
+      if (newVerifiee !== !!shop.verifiee) {
+        await api(`/api/admin/boutiques/${shop.id}/verification`, { method: "PATCH", body: { verifiee: newVerifiee } });
       }
       document.getElementById("shopModalBackdrop").classList.add("hidden");
       await loadShops();

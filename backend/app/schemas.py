@@ -463,6 +463,7 @@ class PublicShopOut(BaseModel):
     commune: str | None = None
     logo_url: str | None = None
     a_un_lien_wave: bool = False
+    verifiee: bool = False
     produits: list[PublicProductOut]
     categories: list[CategoryOut]
 
@@ -496,6 +497,7 @@ class AdminShopOut(BaseModel):
     abonnement_plan: SubscriptionPlan
     prochain_paiement_le: str | None = None
     essai_expire_le: str | None = None
+    verifiee: bool = False
     proprietaire_nom: str
     proprietaire_telephone: str
     nombre_produits: int
@@ -506,6 +508,20 @@ class AdminShopOut(BaseModel):
 
 class AdminShopStatusIn(BaseModel):
     abonnement_statut: SubscriptionStatus
+
+
+class AdminShopVerificationIn(BaseModel):
+    verifiee: bool
+
+
+class AdminChurnRiskOut(BaseModel):
+    shop_id: int
+    boutique_nom: str
+    proprietaire_nom: str
+    proprietaire_telephone: str
+    derniere_connexion: datetime | None = None
+    derniere_commande: datetime | None = None
+    jours_inactivite: int
 
 
 class AdminShopPlanIn(BaseModel):
@@ -685,6 +701,28 @@ class PaymentVerificationOut(BaseModel):
     boutique_nom: str
     montant: float
     date_paiement: date_type
+
+
+# ---------- Suivi de commande public ----------
+class OrderTrackingItemOut(BaseModel):
+    nom: str
+    variante: str | None = None
+    quantite: int
+
+
+class OrderTrackingOut(BaseModel):
+    numero: str
+    boutique_nom: str
+    statut: OrderStatus
+    paiement_statut: PaiementStatut
+    total: float
+    mode_livraison: DeliveryMode | None = None
+    livreur_nom: str | None = None
+    adresse_livraison: str | None = None
+    commune_livraison: str | None = None
+    heure_livraison_prevue: datetime | None = None
+    created_at: datetime
+    items: list[OrderTrackingItemOut] = []
 
 
 # ---------- Statistiques d'évolution ----------

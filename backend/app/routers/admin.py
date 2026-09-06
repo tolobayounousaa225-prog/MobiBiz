@@ -1,5 +1,5 @@
 from datetime import date as date_type
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import csv
 import io
@@ -38,6 +38,7 @@ def _shop_to_admin_out(db: Session, shop: models.Shop) -> schemas.AdminShopOut:
         abonnement_plan=shop.abonnement_plan,
         prochain_paiement_le=shop.prochain_paiement_le.isoformat() if shop.prochain_paiement_le else None,
         essai_expire_le=shop.essai_expire_le.isoformat() if shop.essai_expire_le else None,
+        verifiee=shop.verifiee,
         proprietaire_nom=f"{shop.owner.prenom} {shop.owner.nom}",
         proprietaire_telephone=shop.owner.telephone,
         nombre_produits=nombre_produits,
@@ -60,9 +61,64 @@ def list_shops(db: Session = Depends(get_db)):
     return [_shop_to_admin_out(db, shop) for shop in shops]
 
 
+@router.get("/boutiques/risque-churn", response_model=list[schemas.AdminChurnRiskOut])
+def list_churn_risk_shops(jours: int = 14, db: Session = Depends(get_db)):
+    """Boutiques dont le propriétaire ne s'est pas reconnecté depuis `jours`
+    jours (ou jamais reconnecté depuis l'inscription elle-même si `jours` a
+    déjà été dépassé) — signal d'alerte avant un désabonnement silencieux.
+    Les boutiques déjà suspendues ne sont plus "à risque", elles sont déjà
+    parties."""
+    now = datetime.now(timezone.utc)
+    seuil = timedelta(days=jours)
+
+    shops = (
+        db.query(models.Shop)
+        .filter(models.Shop.abonnement_statut != models.SubscriptionStatus.SUSPENDU)
+        .all()
+    )
+    results = []
+    for shop in shops:
+        owner = shop.owner
+        reference = models.ensure_aware(owner.last_login_at) if owner.last_login_at else models.ensure_aware(shop.created_at)
+        inactivite = now - reference
+        if inactivite < seuil:
+            continue
+        derniere_commande_row = (
+            db.query(models.Order.created_at)
+            .filter(models.Order.shop_id == shop.id)
+            .order_by(models.Order.created_at.desc())
+            .first()
+        )
+        results.append(schemas.AdminChurnRiskOut(
+            shop_id=shop.id,
+            boutique_nom=shop.nom,
+            proprietaire_nom=f"{owner.prenom} {owner.nom}",
+            proprietaire_telephone=owner.telephone,
+            derniere_connexion=owner.last_login_at,
+            derniere_commande=derniere_commande_row[0] if derniere_commande_row else None,
+            jours_inactivite=inactivite.days,
+        ))
+    results.sort(key=lambda r: r.jours_inactivite, reverse=True)
+    return results
+
+
 @router.get("/boutiques/{shop_id}", response_model=schemas.AdminShopOut)
 def get_shop(shop_id: int, db: Session = Depends(get_db)):
     return _shop_to_admin_out(db, _get_shop_or_404(db, shop_id))
+
+
+@router.patch("/boutiques/{shop_id}/verification", response_model=schemas.AdminShopOut)
+def update_shop_verification(
+    shop_id: int, payload: schemas.AdminShopVerificationIn,
+    admin: models.User = Depends(require_super_admin), db: Session = Depends(get_db),
+):
+    shop = _get_shop_or_404(db, shop_id)
+    shop.verifiee = payload.verifiee
+    log_admin_action(db, admin, "verification_boutique", "boutique", shop.id,
+                      f"{'vérifiée' if payload.verifiee else 'retirée'} ({shop.nom})")
+    db.commit()
+    db.refresh(shop)
+    return _shop_to_admin_out(db, shop)
 
 
 @router.patch("/boutiques/{shop_id}/statut", response_model=schemas.AdminShopOut)
@@ -502,4 +558,22 @@ def export_payments_csv(db: Session = Depends(get_db)):
     return StreamingResponse(
         iter([buffer.getvalue()]), media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="paiements.csv"'},
+    )
+
+
+@router.get("/export/journal.csv")
+def export_journal_csv(db: Session = Depends(get_db)):
+    entries = db.query(models.AuditLog).order_by(models.AuditLog.created_at.desc()).all()
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    writer.writerow(["Date", "Administrateur", "Action", "Cible", "ID cible", "Détails"])
+    for e in entries:
+        writer.writerow([
+            e.created_at.strftime("%d/%m/%Y %H:%M"),
+            csv_safe(f"{e.admin.prenom} {e.admin.nom}") if e.admin else "",
+            csv_safe(e.action), csv_safe(e.cible_type), e.cible_id or "", csv_safe(e.details or ""),
+        ])
+    return StreamingResponse(
+        iter([buffer.getvalue()]), media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="journal_audit.csv"'},
     )

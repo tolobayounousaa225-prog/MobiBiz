@@ -167,6 +167,9 @@ class User(Base):
     security_answer_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Uniquement pour role == ADMIN : distingue un admin complet d'un admin support.
     admin_role: Mapped[AdminRole | None] = mapped_column(Enum(AdminRole), nullable=True)
+    # Sert au signal de détection de churn côté admin (boutiques dont le
+    # propriétaire ne se reconnecte plus) — mis à jour à chaque login réussi.
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     shops: Mapped[list["Shop"]] = relationship(
@@ -211,6 +214,9 @@ class Shop(Base):
     abonnement_plan: Mapped[SubscriptionPlan] = mapped_column(Enum(SubscriptionPlan), default=SubscriptionPlan.FREE)
     prochain_paiement_le: Mapped[date_type | None] = mapped_column(Date, nullable=True)
     essai_expire_le: Mapped[date_type | None] = mapped_column(Date, nullable=True)
+    # Badge "Vérifié" attribué manuellement par l'admin (pas de critère
+    # automatique) — affiché sur la boutique publique pour rassurer les clients.
+    verifiee: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     owner: Mapped["User"] = relationship(back_populates="shops", foreign_keys=[owner_id])

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi de commande — MobiBiz</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card" style="max-width:460px" id="resultCard">
+    <div class="brand" style="justify-content:center;display:flex">Mobi<span>Biz</span></div>
+    <p class="tagline" style="text-align:center">Suivi de commande</p>
+    <p style="color:var(--ink-soft);text-align:center">Chargement…</p>
+  </div>
+</div>
+
+<script src="assets/js/api.js"></script>
+<script>
+  const numero = new URLSearchParams(location.search).get("commande");
+  const card = document.getElementById("resultCard");
+
+  const TIMELINE_STEPS = [
+    { key: "nouvelle", label: "Nouvelle" },
+    { key: "confirmee", label: "Confirmée" },
+    { key: "en_preparation", label: "En préparation" },
+    { key: "expediee", label: "Expédiée" },
+    { key: "livree", label: "Livrée" },
+    { key: "terminee", label: "Terminée" },
+  ];
+  const EXCEPTION_STATUSES = ["annulee", "retournee", "echouee"];
+
+  function header() {
+    return `<div class="brand" style="justify-content:center;display:flex">Mobi<span>Biz</span></div>
+      <p class="tagline" style="text-align:center">Suivi de commande</p>`;
+  }
+
+  function renderInvalid() {
+    card.innerHTML = `${header()}
+      <p style="font-size:40px;margin:10px 0;text-align:center">📦</p>
+      <p style="text-align:center">Aucun numéro de commande fourni. Utilisez le lien reçu à la validation de votre commande pour suivre son statut ici.</p>`;
+  }
+
+  function renderNotFound() {
+    card.innerHTML = `${header()}
+      <p style="font-size:40px;margin:10px 0;text-align:center">❓</p>
+      <p style="text-align:center;color:var(--red);font-weight:600">Commande introuvable</p>
+      <p style="text-align:center;color:var(--ink-soft);font-size:13.5px">Vérifiez le numéro de commande dans le lien que vous avez reçu.</p>`;
+  }
+
+  function renderTimeline(data) {
+    if (EXCEPTION_STATUSES.includes(data.statut)) {
+      return `
+        <div style="text-align:center;padding:16px 0">
+          <p style="font-size:36px;margin:0 0 8px">⚠️</p>
+          ${badge(ORDER_STATUS_LABELS, data.statut)}
+        </div>
+      `;
+    }
+    const currentIndex = TIMELINE_STEPS.findIndex((s) => s.key === data.statut);
+    return `
+      <div style="display:flex;flex-direction:column;gap:0;margin:14px 0">
+        ${TIMELINE_STEPS.map((step, i) => {
+          const done = i <= currentIndex;
+          const isLast = i === TIMELINE_STEPS.length - 1;
+          return `
+            <div style="display:flex;gap:10px">
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:${done ? "var(--green)" : "var(--border)"};color:${done ? "#fff" : "var(--ink-soft)"}">${done ? "✓" : ""}</div>
+                ${!isLast ? `<div style="width:2px;flex:1;min-height:22px;background:${i < currentIndex ? "var(--green)" : "var(--border)"}"></div>` : ""}
+              </div>
+              <div style="padding-bottom:18px;font-size:13.5px;color:${done ? "var(--ink)" : "var(--ink-soft)"};font-weight:${i === currentIndex ? "700" : "400"}">${step.label}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderOrder(data) {
+    const livraisonLines = [];
+    if (data.mode_livraison) livraisonLines.push(`<p><strong>Livraison :</strong> ${DELIVERY_MODE_LABELS[data.mode_livraison] || data.mode_livraison}</p>`);
+    if (data.livreur_nom) livraisonLines.push(`<p><strong>Livreur :</strong> ${data.livreur_nom}</p>`);
+    if (data.adresse_livraison) livraisonLines.push(`<p><strong>Adresse :</strong> ${data.adresse_livraison}${data.commune_livraison ? `, ${data.commune_livraison}` : ""}</p>`);
+    if (data.heure_livraison_prevue) livraisonLines.push(`<p><strong>Livraison prévue :</strong> ${fmtDate(data.heure_livraison_prevue)}</p>`);
+
+    card.innerHTML = `${header()}
+      <p style="text-align:center;color:var(--ink-soft);font-size:13px;margin-top:0">Commande <strong>${data.numero}</strong> — ${data.boutique_nom}</p>
+      ${renderTimeline(data)}
+      <div style="border-top:1px solid var(--border);padding-top:12px;font-size:13.5px">
+        <p><strong>Total :</strong> ${fmtFCFA(data.total)}</p>
+        <p><strong>Paiement :</strong> ${badge(PAIEMENT_STATUS_LABELS, data.paiement_statut)}</p>
+        ${livraisonLines.join("")}
+        ${data.items.length ? `<p style="margin-top:10px"><strong>Articles :</strong></p><ul style="margin:4px 0 0;padding-left:18px">${data.items.map((it) => `<li>${it.nom}${it.variante ? ` (${it.variante})` : ""} × ${it.quantite}</li>`).join("")}</ul>` : ""}
+      </div>
+    `;
+  }
+
+  async function run() {
+    if (!numero) { renderInvalid(); return; }
+    try {
+      const data = await api(`/api/public/suivi/${encodeURIComponent(numero)}`);
+      renderOrder(data);
+    } catch (err) {
+      renderNotFound();
+    }
+  }
+
+  run();
+</script>
+</body>
+</html>

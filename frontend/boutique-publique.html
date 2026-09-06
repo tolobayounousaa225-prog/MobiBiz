@@ -68,7 +68,7 @@
     document.body.insertAdjacentHTML("afterbegin", `
       <div class="shop-header">
         ${shopData.logo_url ? `<img src="${API_BASE}${shopData.logo_url}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px;margin-bottom:10px;border:2px solid rgba(255,255,255,.2)">` : ""}
-        <h1>${shopData.nom}</h1>
+        <h1>${shopData.nom}${shopData.verifiee ? ` <span class="badge blue" style="vertical-align:middle;font-size:11px" title="Boutique vérifiée par MobiBiz">✓ Vérifiée</span>` : ""}</h1>
         ${shopData.description ? `<p>${shopData.description}</p>` : ""}
         ${shopData.commune ? `<p>📍 ${shopData.commune}</p>` : ""}
         ${shopData.whatsapp ? `<p>📱 WhatsApp : ${shopData.whatsapp}</p>` : ""}
@@ -363,7 +363,8 @@
           <p style="text-align:center;padding:10px 0">
             ✅ Commande <strong>${result.numero}</strong> envoyée !<br>
             Total : <strong>${fmtFCFA(result.total)}</strong><br>
-            <span style="color:var(--ink-soft);font-size:13px">Le commerçant vous contactera pour la suite.</span>
+            <span style="color:var(--ink-soft);font-size:13px">Le commerçant vous contactera pour la suite.</span><br>
+            <a href="suivi.html?commande=${encodeURIComponent(result.numero)}" target="_blank" style="font-size:13px;color:var(--orange-dark);font-weight:600">Suivre ma commande →</a>
           </p>
           ${shopData.a_un_lien_wave ? `
             <div style="text-align:center;margin-top:6px">

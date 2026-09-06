@@ -376,6 +376,44 @@ attendre d'être contacté par la boutique (comportement par défaut inchangé).
   numéro de téléphone de la boutique en repli pour un envoi manuel, et un rappel
   explicite que ne rien faire reste tout à fait acceptable.
 
+## 4e vague — partage, suivi, churn, vérification, export (2026-09-06)
+
+Côté boutique :
+- **Visuel de partage auto-généré** ✅ — `GET /api/produits/{id}/partage.png`
+  (`app/share_image.py`, Pillow — pas d'IA) : image carrée prête à poster
+  (Instagram/Facebook/statut WhatsApp), photo produit en fond si disponible,
+  nom, prix (avec ancien prix barré si promo active), nom de la boutique.
+  Bouton « Partager » dans `produits.html`. Même piège que sur LECIM appliqué
+  d'emblée : la police par défaut de Pillow ne couvre pas les accents, donc le
+  texte dessiné sur l'image est translittéré (jamais le contenu réel du site).
+- **Suivi de commande public** ✅ — `GET /api/public/suivi/{numero}` (public,
+  rate-limité) + nouvelle page `suivi.html` : ligne du temps visuelle du statut
+  (nouvelle → confirmée → en préparation → expédiée → livrée → terminée, ou un
+  état d'exception distinct pour annulée/retournée/échouée), infos de livraison
+  et articles. Lien « Suivre ma commande » ajouté au message de confirmation sur
+  `boutique-publique.html`, à côté du paiement Wave optionnel déjà en place.
+
+Côté administration plateforme :
+- **Détection de churn** ✅ — `GET /api/admin/boutiques/risque-churn?jours=14` :
+  boutiques dont le propriétaire ne s'est pas reconnecté depuis N jours (nouveau
+  `User.last_login_at`, mis à jour à chaque login), en excluant les boutiques
+  déjà suspendues. Nouvelle section sur `admin-dashboard.html`.
+- **Vérification manuelle des boutiques** ✅ — `Shop.verifiee` (bool, admin
+  uniquement — aucun critère automatique), badge « ✓ Vérifiée » affiché sur la
+  boutique publique et dans la liste admin. Case à cocher dans le modal de
+  gestion d'`admin-boutiques.html`, réservée aux admins SUPER.
+- **Export du journal d'audit** ✅ — `GET /api/admin/export/journal.csv`
+  (protégé `csv_safe`, même garde que les autres exports), bouton sur
+  `admin-journal.html`. Corrigé au passage : plusieurs actions d'audit
+  ajoutées lors de vagues précédentes (`changement_statut_groupe`,
+  `connexion_en_tant_que`, `verification_boutique`) manquaient de leur libellé
+  humain dans `ACTION_LABELS` et s'affichaient en brut — complété.
+
+**Programme de fidélité toujours en attente** — reproposé lors de cette vague,
+de nouveau non retenu (2e fois). Ne plus le mettre systématiquement en tête de
+liste des prochaines propositions ; le mentionner seulement si l'utilisateur
+relance le sujet côté boutique.
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

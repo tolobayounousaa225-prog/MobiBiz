@@ -129,6 +129,7 @@ def run_startup_migrations() -> None:
         "referral_code": "VARCHAR(20)",
         "referred_by_shop_id": "INTEGER",
         "logo_path": "VARCHAR(300)",
+        "verifiee": "BOOLEAN DEFAULT FALSE",
     })
     _add_columns_if_missing(inspector, "subscription_payments", {
         "recu_path": "VARCHAR(300)",
@@ -185,6 +186,7 @@ def run_startup_migrations() -> None:
     # UserRole.EMPLOYEE, voir _ensure_enum_value).
     _add_columns_if_missing(inspector, "users", {
         "admin_role": "VARCHAR(20)",
+        "last_login_at": "TIMESTAMP",
     })
 
     Base.metadata.create_all(bind=engine)

@@ -48,6 +48,15 @@
       </div>
     </div>
     <div class="card">
+      <h2>Boutiques à risque d'inactivité <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">(pas de connexion depuis 14 jours ou plus)</span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Boutique</th><th>Propriétaire</th><th>Dernière connexion</th><th>Dernière commande</th><th>Inactif depuis</th></tr></thead>
+          <tbody id="churnBody"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
       <h2>Boutiques suspendues</h2>
       <div class="table-wrap">
         <table>
@@ -100,13 +109,26 @@
   }
 
   async function load() {
-    const [stats, shops, evolution, revenue] = await Promise.all([
+    const [stats, shops, evolution, revenue, churnRisk] = await Promise.all([
       api("/api/admin/statistiques"),
       api("/api/admin/boutiques"),
       api("/api/admin/statistiques/evolution?mois=6"),
       api("/api/admin/statistiques/revenus"),
+      api("/api/admin/boutiques/risque-churn?jours=14"),
     ]);
     renderEvolutionChart(evolution);
+
+    document.getElementById("churnBody").innerHTML = churnRisk.length === 0
+      ? `<tr><td colspan="5" class="empty">Aucune boutique à risque pour l'instant</td></tr>`
+      : churnRisk.map((s) => `
+          <tr>
+            <td>${s.boutique_nom}</td>
+            <td>${s.proprietaire_nom} — ${s.proprietaire_telephone}</td>
+            <td>${s.derniere_connexion ? fmtDate(s.derniere_connexion) : "Jamais reconnecté"}</td>
+            <td>${s.derniere_commande ? fmtDate(s.derniere_commande) : "Aucune"}</td>
+            <td><span class="badge amber">${s.jours_inactivite} j</span></td>
+          </tr>
+        `).join("");
 
     const revenueValues = document.querySelectorAll("#revenueKpis .value");
     revenueValues[0].textContent = fmtFCFA(revenue.mrr_estime);

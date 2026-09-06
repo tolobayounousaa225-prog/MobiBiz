@@ -239,6 +239,7 @@
             <button class="btn secondary small" data-edit="${p.id}">Modifier</button>
             <button class="btn secondary small" data-avis="${p.id}">Avis</button>
             <button class="btn secondary small" data-labels="${p.id}">Étiquettes</button>
+            <button class="btn secondary small" data-share="${p.id}">Partager</button>
           </td>
         </tr>
       `;
@@ -253,6 +254,24 @@
     body.querySelectorAll("[data-labels]").forEach((btn) => {
       btn.addEventListener("click", () => downloadLabels(products.find((p) => p.id === Number(btn.dataset.labels))));
     });
+    body.querySelectorAll("[data-share]").forEach((btn) => {
+      btn.addEventListener("click", () => downloadShareImage(products.find((p) => p.id === Number(btn.dataset.share))));
+    });
+  }
+
+  async function downloadShareImage(product) {
+    try {
+      const blob = await api(`/api/produits/${product.id}/partage.png`, { isBlob: true });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `partage-${product.nom}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast("Image téléchargée — prête à poster sur vos réseaux", "success");
+    } catch (err) { toast(err.message, "error"); }
   }
 
   async function downloadLabels(product) {

@@ -9,8 +9,12 @@ from .. import models, schemas, storage
 from ..database import get_db
 from ..deps import get_current_shop, require_owner
 from ..plans import plan_limit
+from ..slug_utils import sanitize_slug
 
 router = APIRouter(prefix="/api/boutique", tags=["boutique"])
+
+MIN_SLUG_LENGTH = 3
+MAX_SLUG_LENGTH = 60
 
 
 @router.get("", response_model=schemas.ShopOut)
@@ -49,6 +53,35 @@ def change_plan(
     (QR Wave + enregistrement admin) — un plan choisi mais non payé finira par
     apparaître en retard de paiement dans le tableau de bord admin."""
     shop.abonnement_plan = payload.abonnement_plan
+    db.commit()
+    db.refresh(shop)
+    return shop
+
+
+@router.put("/lien", response_model=schemas.ShopOut)
+def update_shop_slug(
+    payload: schemas.ShopSlugChangeIn,
+    shop: models.Shop = Depends(get_current_shop),
+    _: models.User = Depends(require_owner),
+    db: Session = Depends(get_db),
+):
+    """Permet à la boutique de choisir elle-même le segment de son lien public,
+    plutôt que de rester coincée avec le slug auto-généré (souvent long) posé une
+    fois pour toutes à l'inscription. Toujours re-normalisé côté serveur (accents,
+    espaces...) pour garantir une URL valide quoi qu'elle ait saisi."""
+    slug = sanitize_slug(payload.slug)
+    if len(slug) < MIN_SLUG_LENGTH:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Le lien doit contenir au moins {MIN_SLUG_LENGTH} caractères (lettres ou chiffres)",
+        )
+    slug = slug[:MAX_SLUG_LENGTH].rstrip("-")
+
+    existing = db.query(models.Shop).filter(models.Shop.slug == slug, models.Shop.id != shop.id).first()
+    if existing is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ce lien est déjà pris par une autre boutique")
+
+    shop.slug = slug
     db.commit()
     db.refresh(shop)
     return shop

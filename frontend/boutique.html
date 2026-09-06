@@ -97,9 +97,18 @@
     const url = publicShopUrl(shop.slug);
     box.innerHTML = `
       <p style="font-size:13px;color:var(--ink-soft);margin:0 0 4px">Lien à partager avec vos clients :</p>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
         <input type="text" readonly value="${url}" style="flex:1" onclick="this.select()">
         <button type="button" class="btn secondary small" id="copyPublicLinkBtn">Copier</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px">
+        Personnalisez la fin du lien pour qu'il soit plus court et plus facile à
+        retenir (par défaut, il est généré depuis le nom de la boutique) :
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12.5px;color:var(--ink-soft);white-space:nowrap">…?slug=</span>
+        <input type="text" id="s_slug" value="${shop.slug}" style="flex:1;min-width:140px">
+        <button type="button" class="btn secondary small" id="saveSlugBtn">Enregistrer le lien</button>
       </div>
     `;
     document.getElementById("copyPublicLinkBtn").addEventListener("click", async () => {
@@ -107,6 +116,15 @@
         await navigator.clipboard.writeText(url);
         toast("Lien copié", "success");
       } catch (_) { toast("Impossible de copier automatiquement", "error"); }
+    });
+    document.getElementById("saveSlugBtn").addEventListener("click", async () => {
+      const newSlug = document.getElementById("s_slug").value.trim();
+      if (!newSlug) { toast("Le lien ne peut pas être vide", "error"); return; }
+      try {
+        const updated = await api("/api/boutique/lien", { method: "PUT", body: { slug: newSlug } });
+        renderPublicLinkBox(updated);
+        toast("Lien mis à jour", "success");
+      } catch (err) { toast(err.message, "error"); }
     });
   }
 

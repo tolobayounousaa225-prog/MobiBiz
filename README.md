@@ -331,6 +331,33 @@ de paiement d'abonnement émis par l'admin.
   l'admin de le transmettre lui-même manuellement (WhatsApp, email) si besoin, en
   plus de l'accès déjà automatique côté boutique.
 
+## Lien de boutique personnalisable (2026-09-06)
+
+Demande directe : le lien public généré automatiquement depuis le nom de la
+boutique à l'inscription est parfois long et peu mémorable — permettre à la
+boutique de le personnaliser elle-même.
+
+- **`PUT /api/boutique/lien`** ✅ — le propriétaire choisit son propre segment de
+  lien (`Shop.slug`), toujours re-normalisé côté serveur (accents, espaces,
+  ponctuation → tirets, minuscules) via `slug_utils.sanitize_slug`, quoi qu'il
+  ait saisi. Rejeté si déjà pris par une autre boutique (409) ou si le résultat
+  après normalisation est trop court — moins de 3 caractères utiles (400) ;
+  tronqué à 60 caractères si trop long. Section dédiée sur `boutique.html`
+  (visible uniquement une fois la boutique publique activée), à côté du lien
+  complet déjà copiable.
+- **Bug trouvé et corrigé avant déploiement** : `sanitize_slug` réutilisait
+  telle quelle la fonction de génération automatique (`_base_slug`), qui a un
+  repli implicite sur le mot générique `"boutique"` quand le texte ne contient
+  rien d'exploitable (ex. saisir seulement `"!!"`)  — pertinent pour l'auto-
+  génération à l'inscription (il faut toujours un slug non vide), mais
+  silencieusement trompeur pour une personnalisation manuelle : l'utilisateur
+  se retrouverait avec `"boutique"` sans en être informé, ni comprendre pourquoi.
+  Séparé en deux fonctions : `sanitize_slug` (aucun repli, renvoie une chaîne
+  vide sur une entrée inexploitable, à charge de l'appelant de rejeter
+  clairement) et `generate_unique_shop_slug` (seule à appliquer le repli
+  `"boutique"`, pour l'auto-génération uniquement). Détecté par un test
+  backend dédié avant tout déploiement, pas en production.
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

@@ -121,6 +121,10 @@ class ShopPlanChangeIn(BaseModel):
     abonnement_plan: SubscriptionPlan
 
 
+class ShopSlugChangeIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=80)
+
+
 # ---------- Category ----------
 class CategoryIn(BaseModel):
     nom: str

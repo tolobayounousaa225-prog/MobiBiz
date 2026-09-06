@@ -365,7 +365,33 @@
             Total : <strong>${fmtFCFA(result.total)}</strong><br>
             <span style="color:var(--ink-soft);font-size:13px">Le commerçant vous contactera pour la suite.</span>
           </p>
+          ${shopData.a_un_lien_wave ? `
+            <div style="text-align:center;margin-top:6px">
+              <button type="button" class="btn secondary small" id="revealPaymentBtn">Voir comment payer maintenant (optionnel)</button>
+              <div id="paymentReveal" class="hidden" style="margin-top:14px"></div>
+            </div>
+          ` : ""}
         `;
+        if (shopData.a_un_lien_wave) {
+          document.getElementById("revealPaymentBtn").addEventListener("click", async () => {
+            const box = document.getElementById("paymentReveal");
+            box.classList.remove("hidden");
+            document.getElementById("revealPaymentBtn").classList.add("hidden");
+            box.innerHTML = `<p class="empty">Chargement…</p>`;
+            try {
+              const blob = await api(`/api/public/boutiques/${encodeURIComponent(slug)}/wave-qr.png`, { isBlob: true });
+              const url = URL.createObjectURL(blob);
+              box.innerHTML = `
+                <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Scannez avec l'app Wave pour payer ${fmtFCFA(result.total)} :</p>
+                <img src="${url}" alt="QR code Wave" style="width:170px;height:170px;border:1px solid var(--border);border-radius:8px;padding:8px;background:#fff">
+                ${shopData.telephone ? `<p style="font-size:12.5px;color:var(--ink-soft);margin-top:8px">Ou envoyez directement au numéro : <strong>${shopData.telephone}</strong></p>` : ""}
+                <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Vous pouvez aussi ne rien faire et attendre que la boutique vous contacte.</p>
+              `;
+            } catch (err) {
+              box.innerHTML = `<p class="empty">Paiement Wave indisponible pour le moment.</p>`;
+            }
+          });
+        }
         cart = {};
         updateCartBar();
       } catch (err) {

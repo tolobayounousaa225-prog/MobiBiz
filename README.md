@@ -358,6 +358,24 @@ boutique de le personnaliser elle-même.
   `"boutique"`, pour l'auto-génération uniquement). Détecté par un test
   backend dédié avant tout déploiement, pas en production.
 
+## Paiement Wave optionnel après validation de commande (2026-09-06)
+
+Demande directe : à la confirmation d'une commande sur la boutique publique, le
+client doit pouvoir choisir — voir tout de suite le QR Wave (ou le numéro de la
+boutique pour un envoi manuel) pour payer immédiatement, **ou** ne rien faire et
+attendre d'être contacté par la boutique (comportement par défaut inchangé).
+
+- **`PublicShopOut.a_un_lien_wave`** ✅ (booléen, pas le lien brut — pour ne
+  jamais exposer publiquement le vrai lien de paiement Wave de la boutique) et
+  **`GET /api/public/boutiques/{slug}/wave-qr.png`** (public, même génération
+  que le QR Wave déjà existant côté propriétaire) : sur `boutique-publique.html`,
+  un bouton « Voir comment payer maintenant (optionnel) » n'apparaît qu'une fois
+  la commande envoyée, et seulement si la boutique a configuré un lien Wave —
+  sinon le flux reste strictement identique à avant (aucun bouton, juste le
+  message « le commerçant vous contactera »). Une fois révélé : QR à scanner, le
+  numéro de téléphone de la boutique en repli pour un envoi manuel, et un rappel
+  explicite que ne rien faire reste tout à fait acceptable.
+
 `app/migrations.py` (migrations idempotentes au démarrage, même mécanisme que LECIM)
 reste le seul moyen sûr de faire évoluer le schéma d'une table déjà créée en
 production ; `Base.metadata.create_all()` seul ne suffit pas, tout futur ajout de

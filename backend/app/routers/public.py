@@ -1,4 +1,8 @@
+import io
+
+import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -79,9 +83,27 @@ def get_public_shop(slug: str, db: Session = Depends(get_db)):
         adresse=shop.adresse,
         commune=shop.commune,
         logo_url=shop.logo_display_url,
+        a_un_lien_wave=bool(shop.wave_payment_link),
         produits=[_to_public_product(p, stats) for p in products],
         categories=categories,
     )
+
+
+@router.get("/{slug}/wave-qr.png")
+def get_public_wave_qr(slug: str, db: Session = Depends(get_db)):
+    """QR de paiement Wave affiché de façon optionnelle après la validation
+    d'une commande — le client choisit de payer tout de suite en scannant, ou
+    d'attendre simplement que la boutique le contacte (comportement par défaut,
+    inchangé)."""
+    shop = _get_active_public_shop(db, slug)
+    if not shop.wave_payment_link:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucun lien de paiement Wave configuré")
+
+    img = qrcode.make(shop.wave_payment_link)
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")
 
 
 @router.get("/{slug}/produits/{product_id}/avis", response_model=schemas.ProductReviewSummaryOut)

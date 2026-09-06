@@ -462,6 +462,7 @@ class PublicShopOut(BaseModel):
     adresse: str | None = None
     commune: str | None = None
     logo_url: str | None = None
+    a_un_lien_wave: bool = False
     produits: list[PublicProductOut]
     categories: list[CategoryOut]
 

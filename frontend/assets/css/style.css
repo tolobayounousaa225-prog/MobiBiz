@@ -400,3 +400,101 @@ body.shop-app .alert-bar {
 body.shop-app .alert-bar .btn { margin-left: auto; }
 body.shop-app .alert-bar.warning { background: #FCF1DD; border: 1px solid #EAD2A0; color: #8A6414; }
 body.shop-app .alert-bar.danger { background: #FBE7E5; border: 1px solid #EDB3AD; color: var(--red); }
+body.shop-app .kpi:has(.value.amber) { border-left-color: var(--amber); }
+
+/* ================================================================
+   Espace admin plateforme — même logique que l'espace boutique
+   ci-dessus (posée par admin-layout.js via body.admin-app), mais
+   palette bleu nuit/bleu vif distincte pour ne jamais confondre les
+   deux espaces (utile en particulier pendant une "connexion en tant
+   que" boutique, où les deux interfaces peuvent se succéder vite).
+   ================================================================ */
+body.admin-app {
+  --orange: #3452D9;
+  --orange-dark: #2A41B0;
+  --ink: #14294D;
+  --ink-soft: #6B685F;
+  --bg: #F5F5F4;
+  --border: #E5E4E1;
+  --green: #1F9463;
+  --red: #D6483F;
+  --amber: #C98A1F;
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+}
+
+body.admin-app .sidebar__brand { font-family: 'Manrope', sans-serif; font-weight: 800; }
+body.admin-app .brand-sub {
+  padding: 0 20px 16px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: #7E8FB8;
+}
+
+body.admin-app .admin-chip {
+  margin: 0 16px 14px; padding: 10px 12px; background: #1D3968; border-radius: 10px;
+  display: flex; align-items: center; gap: 9px;
+}
+body.admin-app .admin-chip .avatar {
+  width: 26px; height: 26px; border-radius: 7px; background: var(--orange); color: #fff;
+  font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+body.admin-app .admin-chip .name { color: #fff; font-size: 13px; font-weight: 700; }
+body.admin-app .admin-chip .role { font-size: 10.5px; color: #96A6C8; margin-top: 1px; }
+
+body.admin-app .sidebar nav {padding: 0 10px; gap: 1px; }
+body.admin-app .sidebar nav a {
+  padding: 9px 10px; border-radius: 8px; border-left: none; color: #B7C4DE; font-weight: 600; gap: 10px;
+  position: relative;
+}
+body.admin-app .sidebar nav a .ic { width: 18px; text-align: center; font-size: 14px; opacity: .85; flex-shrink: 0; }
+body.admin-app .sidebar nav a:hover { background: #1D3968; color: #fff; }
+body.admin-app .sidebar nav a.active { background: #1D3968; color: #fff; }
+body.admin-app .sidebar nav a.active::before {
+  content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--orange);
+}
+body.admin-app .nav-count {
+  margin-left: auto; background: var(--red); color: #fff; font-size: 10.5px; font-weight: 800;
+  min-width: 17px; height: 17px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
+}
+
+body.admin-app .sidebar__footer { border-top: 1px solid #274169; }
+body.admin-app .sidebar__footer a { padding: 9px 0; color: #B7C4DE; font-size: 13.5px; display: block; }
+body.admin-app .sidebar__footer a.active { color: #fff; font-weight: 700; }
+body.admin-app .sidebar__footer button { border: 1px solid #2E4C77; color: #B7C4DE; }
+body.admin-app .sidebar__footer button:hover { background: #1D3968; color: #fff; }
+
+body.admin-app .topbar h1 { font-weight: 800; letter-spacing: -.01em; }
+
+body.admin-app .bell {
+  position: relative; width: 36px; height: 36px; border-radius: 9px; background: var(--card);
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+  font-size: 16px; cursor: pointer;
+}
+body.admin-app .bell .dot {
+  position: absolute; top: -5px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 999px; background: var(--red); color: #fff; font-size: 10px; font-weight: 800;
+  display: none; align-items: center; justify-content: center; border: 2px solid var(--bg);
+}
+
+body.admin-app .kpi { border-left: 3px solid var(--border); }
+body.admin-app .kpi:has(.value.orange) { border-left-color: var(--orange); }
+body.admin-app .kpi:has(.value.green) { border-left-color: var(--green); }
+body.admin-app .kpi:has(.value.red) { border-left-color: var(--red); }
+body.admin-app .kpi:has(.value.amber) { border-left-color: var(--amber); }
+body.admin-app .kpi .value { font-weight: 800; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+
+body.admin-app .card h2 { font-weight: 800; }
+
+body.admin-app thead th {
+  background: #FAFAF9; font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
+}
+body.admin-app td.num { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+body.admin-app .badge.gray { background: #EFEEEC; }
+body.admin-app .badge.orange { background: #E8ECFC; }
+body.admin-app .badge.green { background: #E4F5EC; }
+body.admin-app .badge.red { background: #FBE7E5; }
+body.admin-app .badge.amber { background: #FCF1DD; color: #8A6414; }
+body.admin-app .badge.blue { background: #E8ECFC; color: var(--orange); }
+
+body.admin-app .btn { border-radius: 9px; font-weight: 700; }
+body.admin-app input:focus, body.admin-app select:focus, body.admin-app textarea:focus { outline-color: var(--orange); }

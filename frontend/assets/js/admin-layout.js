@@ -1,13 +1,16 @@
 const ADMIN_NAV_ITEMS = [
-  { href: "admin-dashboard.html", label: "Tableau de bord", key: "admin-dashboard", show: () => true },
-  { href: "admin-boutiques.html", label: "Boutiques", key: "admin-boutiques", show: () => true },
-  { href: "admin-tickets.html", label: "Support", key: "admin-tickets", show: () => true },
-  { href: "admin-utilisateurs.html", label: "Utilisateurs", key: "admin-utilisateurs", show: () => true },
-  { href: "admin-journal.html", label: "Journal", key: "admin-journal", show: () => true },
-  { href: "admin-parametres.html", label: "Paramètres", key: "admin-parametres", show: (u) => u.admin_role === "super" },
+  { href: "admin-dashboard.html", label: "Tableau de bord", key: "admin-dashboard", icon: "◧", show: () => true },
+  { href: "admin-boutiques.html", label: "Boutiques", key: "admin-boutiques", icon: "◫", show: () => true },
+  { href: "admin-tickets.html", label: "Support", key: "admin-tickets", icon: "?", badgeKey: "tickets_ouverts", show: () => true },
+  { href: "admin-utilisateurs.html", label: "Utilisateurs", key: "admin-utilisateurs", icon: "◎", show: () => true },
+  { href: "admin-journal.html", label: "Journal", key: "admin-journal", icon: "▤", show: () => true },
+  { href: "admin-parametres.html", label: "Paramètres", key: "admin-parametres", icon: "⚙", show: (u) => u.admin_role === "super" },
 ];
 
+const ADMIN_ROLE_LABELS = { super: "Super admin", support: "Support" };
+
 function renderAdminLayout(activeKey, pageTitle, pageSub) {
+  document.body.classList.add("admin-app");
   document.body.insertAdjacentHTML("afterbegin", `
     <div class="mobile-topbar">
       <button id="menuToggle" aria-label="Menu">&#9776;</button>
@@ -17,10 +20,11 @@ function renderAdminLayout(activeKey, pageTitle, pageSub) {
     <div class="app">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar__brand">MobiBiz<span class="dot">.</span></div>
-        <div class="sidebar__shop">Administration</div>
-        <nav id="sidebarNav"></nav>
+        <div class="brand-sub">Administration</div>
+        <div class="admin-chip" id="adminChip"></div>
+        <nav id="sidebarNav" class="nav"></nav>
         <div class="sidebar__footer">
-          <a href="mon-compte.html" class="${activeKey === "mon-compte" ? "active" : ""}" style="display:block;padding:10px 0;color:#c7c9d8;font-size:14.5px">Mon compte</a>
+          <a href="mon-compte.html" class="${activeKey === "mon-compte" ? "active" : ""}">Mon compte</a>
           <button id="logoutBtn">Déconnexion</button>
         </div>
       </aside>
@@ -31,10 +35,10 @@ function renderAdminLayout(activeKey, pageTitle, pageSub) {
             ${pageSub ? `<p class="sub">${pageSub}</p>` : ""}
           </div>
           <div class="topbar-actions" id="topbarActions" style="display:flex;align-items:center;gap:10px">
-            <div id="adminNotifBell" style="position:relative;cursor:pointer">
-              <span style="font-size:20px">🔔</span>
-              <span id="adminNotifBadge" class="badge red" style="display:none;position:absolute;top:-6px;right:-10px;min-width:18px;text-align:center;padding:1px 5px"></span>
-              <div id="adminNotifDropdown" class="card hidden" style="position:absolute;right:0;top:30px;width:300px;z-index:60;margin:0;font-size:13.5px"></div>
+            <div id="adminNotifBell" class="bell">
+              🔔
+              <span id="adminNotifBadge" class="dot" style="display:none"></span>
+              <div id="adminNotifDropdown" class="card hidden" style="position:absolute;right:0;top:44px;width:300px;z-index:60;margin:0;font-size:13.5px"></div>
             </div>
           </div>
         </div>
@@ -64,8 +68,16 @@ function renderAdminLayout(activeKey, pageTitle, pageSub) {
       window.location.href = "dashboard.html";
       return;
     }
+    const initials = `${(user.prenom || "?")[0]}${(user.nom || "?")[0]}`.toUpperCase();
+    const roleLabel = ADMIN_ROLE_LABELS[user.admin_role] || user.admin_role || "Admin";
+    document.getElementById("adminChip").innerHTML = `
+      <div class="avatar">${escapeHtml(initials)}</div>
+      <div><div class="name">${escapeHtml(user.prenom)} ${escapeHtml(user.nom)}</div><div class="role">${escapeHtml(roleLabel)}</div></div>
+    `;
     const navHtml = ADMIN_NAV_ITEMS.filter((item) => item.show(user)).map(
-      (item) => `<a href="${item.href}" class="${item.key === activeKey ? "active" : ""}">${item.label}</a>`
+      (item) => `<a href="${item.href}" class="${item.key === activeKey ? "active" : ""}"><span class="ic">${item.icon}</span> ${item.label}${
+        item.badgeKey ? `<span class="nav-count hidden" data-admin-nav-badge="${item.badgeKey}"></span>` : ""
+      }</a>`
     ).join("");
     document.getElementById("sidebarNav").innerHTML = navHtml;
     initAdminNotifBell();
@@ -76,6 +88,7 @@ function initAdminNotifBell() {
   const bell = document.getElementById("adminNotifBell");
   const badge = document.getElementById("adminNotifBadge");
   const dropdown = document.getElementById("adminNotifDropdown");
+  const navBadges = document.querySelectorAll("[data-admin-nav-badge]");
 
   async function refresh() {
     try {
@@ -83,10 +96,19 @@ function initAdminNotifBell() {
       const total = n.tickets_ouverts + n.paiements_en_retard + n.essais_expirant_bientot;
       if (total > 0) {
         badge.textContent = total > 9 ? "9+" : total;
-        badge.style.display = "block";
+        badge.style.display = "flex";
       } else {
         badge.style.display = "none";
       }
+      navBadges.forEach((el) => {
+        const count = n[el.dataset.adminNavBadge] || 0;
+        if (count > 0) {
+          el.textContent = count > 9 ? "9+" : count;
+          el.classList.remove("hidden");
+        } else {
+          el.classList.add("hidden");
+        }
+      });
       dropdown.innerHTML = `
         <div style="padding:8px 4px;border-bottom:1px solid var(--border)">🎫 Tickets ouverts : <strong>${n.tickets_ouverts}</strong></div>
         <div style="padding:8px 4px;border-bottom:1px solid var(--border)">💸 Paiements en retard : <strong>${n.paiements_en_retard}</strong></div>

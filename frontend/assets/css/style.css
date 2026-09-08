@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap');
+
 :root {
   --orange: #ff7a00;
   --orange-dark: #e56d00;
@@ -295,3 +297,106 @@ tbody tr:hover { background: #fafafd; }
   .field-row { grid-template-columns: 1fr; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ================================================================
+   Espace boutique — identité visuelle dédiée au back-office marchand.
+   Posée par layout.js (renderLayout ajoute body.shop-app) — n'affecte
+   jamais l'espace admin (admin-layout.js n'ajoute pas cette classe),
+   qui garde les tokens de base définis en haut de ce fichier.
+   ================================================================ */
+body.shop-app {
+  --orange: #E2680A;
+  --orange-dark: #C75A08;
+  --ink: #1B2444;
+  --ink-soft: #6B685F;
+  --bg: #F6F6F3;
+  --border: #E7E5DF;
+  --green: #1F9463;
+  --red: #D6483F;
+  --amber: #C98A1F;
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+}
+
+body.shop-app .sidebar__brand { font-family: 'Manrope', sans-serif; font-weight: 800; }
+
+body.shop-app .shop-chip {
+  margin: 0 16px 14px; padding: 10px 12px; background: #232D52; border-radius: 10px;
+}
+body.shop-app .shop-chip .name { color: #fff; font-size: 13.5px; font-weight: 700; }
+body.shop-app .shop-chip .plan { font-size: 11px; color: #B7BCDD; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+body.shop-app .shop-chip .plan .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+body.shop-app .shop-chip .plan .dot.warning { background: var(--amber); }
+body.shop-app .shop-chip .plan .dot.danger { background: var(--red); }
+
+body.shop-app .nav-sec {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: #7178A0; padding: 14px 20px 6px;
+}
+body.shop-app .sidebar nav { padding: 0 10px; gap: 1px; }
+body.shop-app .sidebar nav a {
+  padding: 9px 10px; border-radius: 8px; border-left: none; color: #C7CCE8; font-weight: 600; gap: 10px;
+  position: relative;
+}
+body.shop-app .sidebar nav a .ic { width: 18px; text-align: center; font-size: 14px; opacity: .85; flex-shrink: 0; }
+body.shop-app .sidebar nav a:hover { background: #232D52; color: #fff; }
+body.shop-app .sidebar nav a.active { background: #232D52; color: #fff; }
+body.shop-app .sidebar nav a.active::before {
+  content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--orange);
+}
+body.shop-app .nav-count {
+  margin-left: auto; background: var(--orange); color: #fff; font-size: 10.5px; font-weight: 800;
+  min-width: 17px; height: 17px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
+}
+
+body.shop-app .sidebar__footer { border-top: 1px solid #2C355C; }
+body.shop-app .sidebar__footer a { padding: 9px 0; color: #C7CCE8; font-size: 13.5px; display: block; }
+body.shop-app .sidebar__footer a.active { color: #fff; font-weight: 700; }
+body.shop-app .sidebar__footer button { border: 1px solid #333C64; color: #C7CCE8; }
+body.shop-app .sidebar__footer button:hover { background: #232D52; color: #fff; }
+
+body.shop-app .topbar h1 { font-weight: 800; letter-spacing: -.01em; }
+
+body.shop-app .bell {
+  position: relative; width: 36px; height: 36px; border-radius: 9px; background: var(--card);
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+  font-size: 16px; cursor: pointer;
+}
+body.shop-app .bell .dot {
+  position: absolute; top: -5px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 999px; background: var(--red); color: #fff; font-size: 10px; font-weight: 800;
+  display: none; align-items: center; justify-content: center; border: 2px solid var(--bg);
+}
+
+/* KPI : liseré coloré déduit du modificateur déjà posé sur .value (orange/green/red),
+   sans dupliquer cette information dans le markup de chaque page. */
+body.shop-app .kpi { border-left: 3px solid var(--border); }
+body.shop-app .kpi:has(.value.orange) { border-left-color: var(--orange); }
+body.shop-app .kpi:has(.value.green) { border-left-color: var(--green); }
+body.shop-app .kpi:has(.value.red) { border-left-color: var(--red); }
+body.shop-app .kpi .value { font-weight: 800; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+
+body.shop-app .card h2 { font-weight: 800; }
+
+body.shop-app thead th {
+  background: #FAF9F6; font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
+}
+body.shop-app td.num { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+body.shop-app .badge.gray { background: #EFEEEA; }
+body.shop-app .badge.orange { background: #FDECDC; }
+body.shop-app .badge.green { background: #E4F5EC; }
+body.shop-app .badge.red { background: #FBE7E5; }
+body.shop-app .badge.amber { background: #FCF1DD; color: #8A6414; }
+body.shop-app .badge.blue { background: #E7EEFC; color: #2461C9; }
+
+body.shop-app .btn { border-radius: 9px; font-weight: 700; }
+body.shop-app input:focus, body.shop-app select:focus, body.shop-app textarea:focus { outline-color: var(--orange); }
+
+body.shop-app .alert-bar {
+  border-radius: 10px; padding: 11px 16px; margin-bottom: 16px; display: flex; align-items: center;
+  gap: 10px; flex-wrap: wrap; font-size: 13px; font-weight: 600;
+}
+body.shop-app .alert-bar .btn { margin-left: auto; }
+body.shop-app .alert-bar.warning { background: #FCF1DD; border: 1px solid #EAD2A0; color: #8A6414; }
+body.shop-app .alert-bar.danger { background: #FBE7E5; border: 1px solid #EDB3AD; color: var(--red); }

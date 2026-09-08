@@ -15,22 +15,26 @@ function hasAccess(user, module) {
 }
 
 const NAV_ITEMS = [
-  { href: "dashboard.html", label: "Tableau de bord", key: "dashboard", show: () => true },
-  { href: "produits.html", label: "Produits", key: "produits", show: (u) => hasAccess(u, "produits"), badgeKey: "avis" },
-  { href: "stock.html", label: "Stock", key: "stock", show: (u) => hasAccess(u, "stock"), badgeKey: "stock" },
-  { href: "clients.html", label: "Clients", key: "clients", show: () => true },
-  { href: "commandes.html", label: "Commandes", key: "commandes", show: (u) => hasAccess(u, "commandes"), badgeKey: "commandes" },
-  { href: "finances.html", label: "Finances", key: "finances", show: (u) => hasAccess(u, "finance") },
-  { href: "marketing.html", label: "Marketing", key: "marketing", show: (u) => u.role === "owner" },
-  { href: "coupons.html", label: "Codes promo", key: "coupons", show: (u) => u.role === "owner" },
-  { href: "rapports.html", label: "Rapports", key: "rapports", show: (u) => u.role === "owner" || hasAccess(u, "produits") || hasAccess(u, "finance") },
-  { href: "employes.html", label: "Employés", key: "employes", show: (u) => u.role === "owner" },
-  { href: "plans.html", label: "Mon abonnement", key: "plans", show: (u) => u.role === "owner" },
-  { href: "support.html", label: "Support", key: "support", show: () => true },
-  { href: "boutique.html", label: "Ma boutique", key: "boutique", show: (u) => u.role === "owner" },
+  { href: "dashboard.html", label: "Tableau de bord", key: "dashboard", icon: "◧", show: () => true },
+  { href: "produits.html", label: "Produits", key: "produits", icon: "◫", show: (u) => hasAccess(u, "produits"), badgeKey: "avis" },
+  { href: "stock.html", label: "Stock", key: "stock", icon: "▤", show: (u) => hasAccess(u, "stock"), badgeKey: "stock" },
+  { href: "clients.html", label: "Clients", key: "clients", icon: "◎", show: () => true },
+  { href: "commandes.html", label: "Commandes", key: "commandes", icon: "▥", show: (u) => hasAccess(u, "commandes"), badgeKey: "commandes" },
+  { href: "finances.html", label: "Finances", key: "finances", icon: "◐", show: (u) => hasAccess(u, "finance") },
+  { href: "marketing.html", label: "Marketing", key: "marketing", icon: "↗", show: (u) => u.role === "owner", section: "Croissance" },
+  { href: "coupons.html", label: "Codes promo", key: "coupons", icon: "%", show: (u) => u.role === "owner", section: "Croissance" },
+  { href: "rapports.html", label: "Rapports", key: "rapports", icon: "▦", show: (u) => u.role === "owner" || hasAccess(u, "produits") || hasAccess(u, "finance"), section: "Croissance" },
+  { href: "employes.html", label: "Employés", key: "employes", icon: "◍", show: (u) => u.role === "owner", section: "Compte" },
+  { href: "plans.html", label: "Mon abonnement", key: "plans", icon: "◆", show: (u) => u.role === "owner", section: "Compte" },
+  { href: "support.html", label: "Support", key: "support", icon: "?", show: () => true, section: "Compte" },
+  { href: "boutique.html", label: "Ma boutique", key: "boutique", icon: "⚑", show: (u) => u.role === "owner", section: "Compte" },
 ];
 
+const PLAN_LABELS = { free: "Gratuit", starter: "Starter", pro: "Pro", business: "Business", enterprise: "Entreprise" };
+const SUBSCRIPTION_STATUS_LABELS = { essai: "essai", actif: "actif", suspendu: "suspendu" };
+
 function renderLayout(activeKey, pageTitle, pageSub) {
+  document.body.classList.add("shop-app");
   document.body.insertAdjacentHTML("afterbegin", `
     <div class="mobile-topbar">
       <button id="menuToggle" aria-label="Menu">&#9776;</button>
@@ -40,10 +44,12 @@ function renderLayout(activeKey, pageTitle, pageSub) {
     <div class="app">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar__brand">MobiBiz<span class="dot">.</span></div>
-        <div class="sidebar__shop" id="shopNameLabel">Chargement…</div>
-        <nav id="sidebarNav"></nav>
+        <div class="shop-chip" id="shopChip">
+          <div class="name" id="shopNameLabel">Chargement…</div>
+        </div>
+        <nav id="sidebarNav" class="nav"></nav>
         <div class="sidebar__footer">
-          <a href="mon-compte.html" class="${activeKey === "mon-compte" ? "active" : ""}" style="display:block;padding:10px 0;color:#c7c9d8;font-size:14.5px">Mon compte</a>
+          <a href="mon-compte.html" class="${activeKey === "mon-compte" ? "active" : ""}">Mon compte</a>
           <button id="logoutBtn">Déconnexion</button>
         </div>
       </aside>
@@ -55,10 +61,10 @@ function renderLayout(activeKey, pageTitle, pageSub) {
             ${pageSub ? `<p class="sub">${pageSub}</p>` : ""}
           </div>
           <div class="topbar-actions" id="topbarActions" style="display:flex;align-items:center;gap:10px">
-            <div id="notifBell" style="position:relative;cursor:pointer;display:none">
-              <span style="font-size:20px">🔔</span>
-              <span id="notifBadge" class="badge red" style="display:none;position:absolute;top:-6px;right:-10px;min-width:18px;text-align:center;padding:1px 5px"></span>
-              <div id="notifDropdown" class="card hidden" style="position:absolute;right:0;top:30px;width:320px;max-height:400px;overflow-y:auto;z-index:60;margin:0"></div>
+            <div id="notifBell" class="bell" style="display:none">
+              🔔
+              <span id="notifBadge" class="dot" style="display:none"></span>
+              <div id="notifDropdown" class="card hidden" style="position:absolute;right:0;top:44px;width:320px;max-height:400px;overflow-y:auto;z-index:60;margin:0"></div>
             </div>
           </div>
         </div>
@@ -98,6 +104,11 @@ function renderLayout(activeKey, pageTitle, pageSub) {
 
   api("/api/boutique").then((shop) => {
     document.getElementById("shopNameLabel").textContent = shop.nom;
+    const statusLabel = SUBSCRIPTION_STATUS_LABELS[shop.abonnement_statut] || shop.abonnement_statut;
+    const planLabel = PLAN_LABELS[shop.abonnement_plan] || shop.abonnement_plan;
+    document.getElementById("shopChip").insertAdjacentHTML("beforeend", `
+      <div class="plan"><span class="dot ${shop.abonnement_statut === "suspendu" ? "danger" : shop.abonnement_statut === "essai" ? "warning" : ""}"></span> Plan ${escapeHtml(planLabel)} · ${escapeHtml(statusLabel)}</div>
+    `);
     renderAccountAlert(shop);
   }).catch(() => {});
 
@@ -106,11 +117,17 @@ function renderLayout(activeKey, pageTitle, pageSub) {
       window.location.href = "admin-dashboard.html";
       return;
     }
-    const navHtml = NAV_ITEMS.filter((item) => item.show(user)).map(
-      (item) => `<a href="${item.href}" class="${item.key === activeKey ? "active" : ""}">${item.label}${
-        item.badgeKey ? `<span class="nav-badge hidden" data-nav-badge="${item.badgeKey}"></span>` : ""
-      }</a>`
-    ).join("");
+    let navHtml = "";
+    let currentSection = null;
+    NAV_ITEMS.filter((item) => item.show(user)).forEach((item) => {
+      if (item.section !== currentSection) {
+        currentSection = item.section;
+        if (currentSection) navHtml += `<div class="nav-sec">${currentSection}</div>`;
+      }
+      navHtml += `<a href="${item.href}" class="${item.key === activeKey ? "active" : ""}"><span class="ic">${item.icon}</span> ${item.label}${
+        item.badgeKey ? `<span class="nav-count hidden" data-nav-badge="${item.badgeKey}"></span>` : ""
+      }</a>`;
+    });
     document.getElementById("sidebarNav").innerHTML = navHtml;
     initNotifBell();
     initPendingActionBadges();
@@ -129,9 +146,9 @@ function renderAccountAlert(shop) {
         ? "Votre essai gratuit se termine aujourd'hui."
         : `Votre essai gratuit se termine dans ${joursRestants} jour(s) (${fmtDate(shop.essai_expire_le)}).`;
       bar.innerHTML = `
-        <div style="background:#fdf3dd;border:1px solid var(--amber);color:#97731a;border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="alert-bar warning">
           <span>⏳ ${texte} Choisissez un plan pour continuer sans interruption.</span>
-          <a href="plans.html" class="btn small" style="margin-left:auto">Voir les plans</a>
+          <a href="plans.html" class="btn small">Voir les plans</a>
         </div>
       `;
       return;
@@ -140,9 +157,9 @@ function renderAccountAlert(shop) {
 
   if (shop.abonnement_statut === "actif" && shop.prochain_paiement_le && shop.prochain_paiement_le < today) {
     bar.innerHTML = `
-      <div style="background:#fdeceb;border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="alert-bar danger">
         <span>⚠️ Votre paiement d'abonnement est en retard depuis le ${fmtDate(shop.prochain_paiement_le)}. Réglez rapidement pour éviter une suspension.</span>
-        <a href="boutique.html" class="btn small" style="margin-left:auto">Régler mon abonnement</a>
+        <a href="boutique.html" class="btn small">Régler mon abonnement</a>
       </div>
     `;
     return;

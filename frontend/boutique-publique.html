@@ -5,33 +5,78 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Boutique — MobiBiz</title>
 <link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@500;600;700;800&display=swap">
 <style>
-  body { background: var(--bg); }
+  :root {
+    --sp-bg: #FFFCF7; --sp-surface: #fff; --sp-ink: #1C2444; --sp-ink-soft: #6E6355;
+    --sp-accent: #E2680A; --sp-accent-ink: #FFF4E7; --sp-jade: #2E9968; --sp-coral: #D6483F;
+    --sp-line: #ECE3D4; --sp-radius: 12px; --sp-display: 'Instrument Serif', Georgia, serif;
+  }
+  body { background: var(--sp-bg); font-family: 'Manrope', var(--font, system-ui), sans-serif; }
+
   .shop-header {
-    background: var(--ink); color: #fff; padding: 32px 20px; text-align: center;
+    background: var(--sp-ink); color: #fff; padding: 40px 20px 32px; text-align: center;
+    border-top: 4px solid var(--sp-accent);
   }
-  .shop-header h1 { margin: 0 0 6px; font-size: 24px; }
-  .shop-header p { margin: 2px 0; color: #c7c9d8; font-size: 13.5px; }
-  .shop-wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 100px; }
-  .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+  .shop-header .crest {
+    width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 14px; object-fit: cover;
+    border: 1px solid rgba(255,255,255,.25);
+  }
+  .shop-header h1 {
+    margin: 0 0 10px; font-family: var(--sp-display); font-weight: 400; font-style: italic;
+    font-size: 32px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  }
+  .shop-header .verified {
+    font-family: 'Manrope', sans-serif; font-style: normal; font-size: 11.5px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.4); color: #fff;
+  }
+  .shop-header p { margin: 3px 0; color: #D9DCF0; font-size: 13.5px; }
+  .shop-header .meta-row { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; margin-top: 10px; }
+  .shop-header .meta-row span { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: #F3D9BC; }
+
+  .shop-wrap { max-width: 900px; margin: 0 auto; padding: 22px 16px 120px; }
+
+  .category-tabs { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 18px; padding-bottom: 4px; }
+  .category-tabs button {
+    border: 1px solid var(--sp-line); background: var(--sp-surface); color: var(--sp-ink-soft);
+    padding: 7px 15px; border-radius: 999px; font-family: 'Manrope', sans-serif; font-weight: 700;
+    font-size: 12.5px; cursor: pointer; white-space: nowrap;
+  }
+  .category-tabs button.active { background: var(--sp-accent); color: var(--sp-accent-ink); border-color: var(--sp-accent); }
+
+  .product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (min-width: 560px) { .product-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; } }
+
   .product-card {
-    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+    background: var(--sp-surface); border: 1px solid var(--sp-line); border-radius: var(--sp-radius);
+    padding: 12px; display: flex; flex-direction: column; transition: transform .15s ease, box-shadow .15s ease;
   }
-  .product-card .name { font-weight: 600; font-size: 14.5px; margin-bottom: 4px; }
-  .product-card .price { color: var(--orange-dark); font-weight: 700; margin-bottom: 10px; }
-  .product-card .desc { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 10px; flex: 1; }
+  .product-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -14px rgba(28,36,68,.25); }
+  .photo-placeholder {
+    width: 100%; aspect-ratio: 1; border-radius: 8px; margin-bottom: 8px; background: linear-gradient(160deg,#FFE8CF,#FFD9B0);
+    display: flex; align-items: center; justify-content: center; font-family: var(--sp-display); font-style: italic;
+    color: #B4560F; font-size: 15px; text-align: center; padding: 8px; cursor: pointer;
+  }
+  .product-card .name { font-family: var(--sp-display); font-style: italic; font-weight: 400; font-size: 17px; margin-bottom: 3px; }
+  .product-card .price { color: var(--sp-accent); font-weight: 800; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
+  .product-card .desc { font-size: 12.5px; color: var(--sp-ink-soft); margin-bottom: 10px; flex: 1; }
+  .product-card .btn { background: var(--sp-accent); border-color: var(--sp-accent); border-radius: 9px; font-weight: 700; }
+  .badge.orange { background: transparent; color: var(--sp-coral); border: 1px solid var(--sp-coral); }
+
   .cart-bar {
-    position: fixed; bottom: 0; left: 0; right: 0; background: var(--ink); color: #fff;
+    position: fixed; bottom: 0; left: 0; right: 0; background: var(--sp-ink); color: #fff;
     padding: 14px 20px; display: none; align-items: center; justify-content: space-between; z-index: 40;
   }
   .cart-bar.visible { display: flex; }
-  .category-tabs { display: flex; gap: 8px; overflow-x: auto; margin: 18px 0; padding-bottom: 4px; }
-  .category-tabs button {
-    border: 1px solid var(--border); background: #fff; padding: 6px 14px; border-radius: 999px;
-    font-size: 13px; cursor: pointer; white-space: nowrap;
+  .cart-bar .btn { background: var(--sp-accent); border-color: var(--sp-accent); }
+
+  .whatsapp-fab {
+    /* bottom offset toujours suffisant pour ne jamais chevaucher la .cart-bar (~56px de haut)
+       quand elle apparaît, plutôt que de dépendre d'une coordination JS entre les deux. */
+    position: fixed; bottom: 82px; left: 16px; background: #25D366; color: #fff; width: 48px; height: 48px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px;
+    box-shadow: 0 8px 20px -6px rgba(0,0,0,.4); z-index: 45; text-decoration: none;
   }
-  .category-tabs button.active { background: var(--orange); color: #fff; border-color: var(--orange); }
 </style>
 </head>
 <body>
@@ -67,20 +112,20 @@
   function renderShop() {
     document.body.insertAdjacentHTML("afterbegin", `
       <div class="shop-header">
-        ${shopData.logo_url ? `<img src="${API_BASE}${shopData.logo_url}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px;margin-bottom:10px;border:2px solid rgba(255,255,255,.2)">` : ""}
-        <h1>${escapeHtml(shopData.nom)}${shopData.verifiee ? ` <span class="badge blue" style="vertical-align:middle;font-size:11px" title="Boutique vérifiée par MobiBiz">✓ Vérifiée</span>` : ""}</h1>
+        ${shopData.logo_url ? `<img class="crest" src="${API_BASE}${shopData.logo_url}" alt="">` : ""}
+        <h1>${escapeHtml(shopData.nom)}${shopData.verifiee ? ` <span class="verified" title="Boutique vérifiée par MobiBiz">✓ Vérifiée</span>` : ""}</h1>
         ${shopData.description ? `<p>${escapeHtml(shopData.description)}</p>` : ""}
-        ${shopData.commune ? `<p>📍 ${escapeHtml(shopData.commune)}</p>` : ""}
-        ${shopData.whatsapp ? `<p>📱 WhatsApp : ${escapeHtml(shopData.whatsapp)}</p>` : ""}
+        <div class="meta-row">
+          ${shopData.commune ? `<span>📍 ${escapeHtml(shopData.commune)}</span>` : ""}
+          ${shopData.whatsapp ? `<span>💬 ${escapeHtml(shopData.whatsapp)}</span>` : ""}
+        </div>
       </div>
       <div class="shop-wrap">
         <div class="category-tabs" id="categoryTabs"></div>
         <div class="product-grid" id="productGrid"></div>
       </div>
       ${shopData.whatsapp ? `
-        <a href="${waLink(shopData.whatsapp, `Bonjour, je viens de votre boutique ${shopData.nom} en ligne.`)}" target="_blank" rel="noopener"
-           style="position:fixed;bottom:80px;right:20px;background:#25D366;color:#fff;width:52px;height:52px;border-radius:50%;
-                  display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:var(--shadow);z-index:45;text-decoration:none">
+        <a class="whatsapp-fab" href="${waLink(shopData.whatsapp, `Bonjour, je viens de votre boutique ${shopData.nom} en ligne.`)}" target="_blank" rel="noopener" aria-label="Discuter sur WhatsApp">
           💬
         </a>
       ` : ""}
@@ -121,7 +166,9 @@
 
     grid.innerHTML = list.map((p) => `
       <div class="product-card">
-        ${p.image_url ? `<img src="${API_BASE}${p.image_url}" alt="${escapeHtml(p.nom)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer" data-open="${p.id}">` : ""}
+        ${p.image_url
+          ? `<img src="${API_BASE}${p.image_url}" alt="${escapeHtml(p.nom)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer" data-open="${p.id}">`
+          : `<div class="photo-placeholder" data-open="${p.id}">${escapeHtml(p.nom)}</div>`}
         <div class="name" style="cursor:pointer" data-open="${p.id}">${escapeHtml(p.nom)}</div>
         ${categoryName(p.category_id) ? `<div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:4px">${escapeHtml(categoryName(p.category_id))}</div>` : ""}
         ${p.nombre_avis > 0 ? `<div style="font-size:12px;color:var(--ink-soft);margin-bottom:4px">${"★".repeat(Math.round(p.note_moyenne))}${"☆".repeat(5 - Math.round(p.note_moyenne))} (${p.nombre_avis})</div>` : ""}
@@ -183,7 +230,8 @@
     const mainImageBox = document.getElementById("pd_image");
     const setMainImage = (url) => {
       mainImageBox.innerHTML = url
-        ? `<img src="${url}" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;margin-bottom:8px">` : "";
+        ? `<img src="${url}" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;margin-bottom:8px">`
+        : `<div class="photo-placeholder" style="cursor:default">${escapeHtml(product.nom)}</div>`;
     };
     setMainImage(product.image_url ? `${API_BASE}${product.image_url}` : null);
 

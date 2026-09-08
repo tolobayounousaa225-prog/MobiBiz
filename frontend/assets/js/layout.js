@@ -30,8 +30,8 @@ const NAV_ITEMS = [
   { href: "boutique.html", label: "Ma boutique", key: "boutique", icon: "⚑", show: (u) => u.role === "owner", section: "Compte" },
 ];
 
-const PLAN_LABELS = { free: "Gratuit", starter: "Starter", pro: "Pro", business: "Business", enterprise: "Entreprise" };
-const SUBSCRIPTION_STATUS_LABELS = { essai: "essai", actif: "actif", suspendu: "suspendu" };
+const SIDEBAR_PLAN_LABELS = { free: "Gratuit", starter: "Starter", pro: "Pro", business: "Business", enterprise: "Entreprise" };
+const SIDEBAR_STATUS_LABELS = { essai: "essai", actif: "actif", suspendu: "suspendu" };
 
 function renderLayout(activeKey, pageTitle, pageSub) {
   document.body.classList.add("shop-app");
@@ -104,8 +104,8 @@ function renderLayout(activeKey, pageTitle, pageSub) {
 
   api("/api/boutique").then((shop) => {
     document.getElementById("shopNameLabel").textContent = shop.nom;
-    const statusLabel = SUBSCRIPTION_STATUS_LABELS[shop.abonnement_statut] || shop.abonnement_statut;
-    const planLabel = PLAN_LABELS[shop.abonnement_plan] || shop.abonnement_plan;
+    const statusLabel = SIDEBAR_STATUS_LABELS[shop.abonnement_statut] || shop.abonnement_statut;
+    const planLabel = SIDEBAR_PLAN_LABELS[shop.abonnement_plan] || shop.abonnement_plan;
     document.getElementById("shopChip").insertAdjacentHTML("beforeend", `
       <div class="plan"><span class="dot ${shop.abonnement_statut === "suspendu" ? "danger" : shop.abonnement_statut === "essai" ? "warning" : ""}"></span> Plan ${escapeHtml(planLabel)} · ${escapeHtml(statusLabel)}</div>
     `);

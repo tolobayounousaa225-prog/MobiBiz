@@ -7,7 +7,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "admin-parametres.html", label: "Paramètres", key: "admin-parametres", icon: "⚙", show: (u) => u.admin_role === "super" },
 ];
 
-const ADMIN_ROLE_LABELS = { super: "Super admin", support: "Support" };
+const SIDEBAR_ADMIN_ROLE_LABELS = { super: "Super admin", support: "Support" };
 
 function renderAdminLayout(activeKey, pageTitle, pageSub) {
   document.body.classList.add("admin-app");
@@ -69,7 +69,7 @@ function renderAdminLayout(activeKey, pageTitle, pageSub) {
       return;
     }
     const initials = `${(user.prenom || "?")[0]}${(user.nom || "?")[0]}`.toUpperCase();
-    const roleLabel = ADMIN_ROLE_LABELS[user.admin_role] || user.admin_role || "Admin";
+    const roleLabel = SIDEBAR_ADMIN_ROLE_LABELS[user.admin_role] || user.admin_role || "Admin";
     document.getElementById("adminChip").innerHTML = `
       <div class="avatar">${escapeHtml(initials)}</div>
       <div><div class="name">${escapeHtml(user.prenom)} ${escapeHtml(user.nom)}</div><div class="role">${escapeHtml(roleLabel)}</div></div>

@@ -122,10 +122,19 @@ def _ensure_enum_value(pg_enum_name: str, value: str) -> None:
     dev local) qui ne fait aucune vérification stricte de type ENUM — d'où un bug
     invisible en local mais bloquant en production (`invalid input value for enum`).
     `ADD VALUE IF NOT EXISTS` doit tourner en dehors d'un bloc de transaction
-    explicite sur Postgres, d'où l'isolation AUTOCOMMIT plutôt que engine.begin()."""
+    explicite sur Postgres, d'où l'isolation AUTOCOMMIT plutôt que engine.begin().
+    Sur une base neuve, le type n'existe pas encore à ce stade (create_all() ne
+    s'exécute qu'après) : create_all() le créera alors directement avec la bonne
+    valeur, donc rien à faire ici dans ce cas — sans ce garde, ALTER TYPE plante
+    avec "type does not exist"."""
     if engine.dialect.name != "postgresql":
         return
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM pg_type WHERE typname = :name"), {"name": pg_enum_name}
+        ).first()
+        if not exists:
+            return
         conn.execute(text(f"ALTER TYPE {pg_enum_name} ADD VALUE IF NOT EXISTS '{value}'"))
 
 

@@ -1,6 +1,6 @@
 const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? "http://127.0.0.1:8010"
-  : "https://mobibiz-backend-production.up.railway.app";
+  : "https://mobibiz.213-199-37-74.sslip.io";
 
 const Auth = {
   getToken() { return localStorage.getItem("mobibiz_token"); },
